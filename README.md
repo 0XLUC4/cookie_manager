@@ -2,7 +2,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-GAMAKADEV-blue?logo=github)](https://github.com/GAMAKADEV/cookie-manager-pro)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Firefox](https://img.shields.io/badge/Firefox-140%2B-orange?logo=firefox)](https://addons.mozilla.org)
+[![Firefox](https://img.shields.io/badge/Firefox-140%2B-orange?logo=firefox)]([https://addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/cookie_manager/))
 
 The most complete cookie manager for Firefox! Export, import, view, edit and manage all your browser cookies with military-grade encryption.
 
@@ -99,7 +99,7 @@ Contributions welcome!
 
 - **GitHub**: [github.com/GAMAKADEV/cookie-manager-pro](https://github.com/GAMAKADEV/cookie-manager-pro)
 - **Author**: [@GAMAKADEV](https://github.com/GAMAKADEV)
-- **Firefox Add-ons**: Coming soon!
+- **Firefox Add-ons**: [Cookie Manager](https://addons.mozilla.org/en-US/firefox/addon/cookie_manager/)
 
 ## 📄 License
 
@@ -108,3 +108,4 @@ MIT License - Free to use, modify and distribute.
 ---
 
 Made with ❤️ by [GAMAKADEV](https://github.com/GAMAKADEV)
+
