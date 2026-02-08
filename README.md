@@ -1,6 +1,6 @@
 # 🍪 Cookie Manager v2.0
 
-[![GitHub](https://img.shields.io/badge/GitHub-GAMAKADEV-blue?logo=github)](https://github.com/GAMAKADEV/cookie_manager)
+[![GitHub](https://img.shields.io/badge/GitHub-0XLUC4-blue?logo=github)](https://github.com/0XLUC4/cookie_manager)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Firefox](https://img.shields.io/badge/Firefox-140%2B-orange?logo=firefox)](https://addons.mozilla.org)
 
@@ -108,5 +108,6 @@ MIT License - Free to use, modify and distribute.
 ---
 
 Made with ❤️ by [GAMAKADEV](https://github.com/GAMAKADEV)
+
 
 
