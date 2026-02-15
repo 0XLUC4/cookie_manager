@@ -97,8 +97,8 @@ Contributions welcome!
 
 ## 📎 Links
 
-- **GitHub**: [github.com/GAMAKADEV/cookie-manager-pro](https://github.com/GAMAKADEV/cookie-manager-pro)
-- **Author**: [@GAMAKADEV](https://github.com/GAMAKADEV)
+- **GitHub**: [github.com/0XLUC4/cookie_manager](https://github.com/0XLUC4/cookie_manager)
+- **Author**: [@GAMAKADEV](https://github.com/0XLUC4)
 - **Firefox Add-ons**: [Cookie Manager](https://addons.mozilla.org/en-US/firefox/addon/cookie_manager/)
 
 ## 📄 License
@@ -107,7 +107,8 @@ MIT License - Free to use, modify and distribute.
 
 ---
 
-Made with ❤️ by [GAMAKADEV](https://github.com/GAMAKADEV)
+Made with ❤️ by [0XLUC4](https://github.com/0XLUC4)
+
 
 
 
