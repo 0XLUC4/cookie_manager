@@ -553,7 +553,7 @@ class CookieManager {
   }
 
   toNetscapeFormat(cookies) {
-    const lines = ['# Netscape HTTP Cookie File', '# https://github.com/GAMAKADEV/cookie-manager-pro', ''];
+    const lines = ['# Netscape HTTP Cookie File', '# https://github.com/0XLUC4/cookie_manager', ''];
     
     for (const c of cookies) {
       const domain = c.domain.startsWith('.') ? c.domain : '.' + c.domain;
