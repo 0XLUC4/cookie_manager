@@ -1,4 +1,4 @@
-# 🍪 Cookie Manager Pro v2.0
+# 🍪 Cookie Manager Pro v2.1.0
 
 [![GitHub](https://img.shields.io/badge/GitHub-GAMAKADEV-blue?logo=github)](https://github.com/GAMAKADEV/cookie-manager-pro)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -108,3 +108,4 @@ MIT License - Free to use, modify and distribute.
 ---
 
 Made with ❤️ by [GAMAKADEV](https://github.com/GAMAKADEV)
+
