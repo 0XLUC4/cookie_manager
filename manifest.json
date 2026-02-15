@@ -1,14 +1,13 @@
 {
   "manifest_version": 2,
   "name": "Cookie Manager Pro",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Export, import, view, edit and manage your cookies with AES-256 encryption, profiles, auto-backup and more!",
   "author": "GAMAKADEV",
   "homepage_url": "https://github.com/GAMAKADEV/cookie-manager-pro",
-  
   "icons": {
-    "48": "icons/icon-48.svg",
-    "96": "icons/icon-96.svg"
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
   },
 
   "permissions": [
@@ -34,8 +33,8 @@
 
   "browser_action": {
     "default_icon": {
-      "48": "icons/icon-48.svg",
-      "96": "icons/icon-96.svg"
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
     },
     "default_title": "Open Cookie Manager"
   },
@@ -44,8 +43,8 @@
     "default_title": "Cookie Manager",
     "default_panel": "sidebar/sidebar.html",
     "default_icon": {
-      "48": "icons/icon-48.svg",
-      "96": "icons/icon-96.svg"
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
     },
     "open_at_install": false
   },
