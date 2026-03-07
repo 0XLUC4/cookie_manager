@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Cookie Manager Pro",
-  "version": "2.1.0",
-  "description": "Export, import, view, edit and manage your cookies with AES-256 encryption, profiles, auto-backup and more!",
+  "version": "3.0.0",
+  "description": "The ultimate cookie manager: monitor, protect, clean, export/import, profiles, rules, containers, dashboard & more. 100% offline.",
   "author": "0XLUC4",
   "homepage_url": "https://github.com/0XLUC4/cookie_manager",
   "icons": {
@@ -13,6 +13,9 @@
   "permissions": [
     "cookies",
     "storage",
+    "contextualIdentities",
+    "clipboardWrite",
+    "tabs",
     "<all_urls>"
   ],
 
@@ -40,7 +43,7 @@
   },
 
   "sidebar_action": {
-    "default_title": "Cookie Manager",
+    "default_title": "Cookie Manager Pro",
     "default_panel": "sidebar/sidebar.html",
     "default_icon": {
       "48": "icons/icon-48.png",
