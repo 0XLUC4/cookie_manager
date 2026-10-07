@@ -15,6 +15,18 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/cookies-light.png" width="260" alt="Cookie list with current site card and container tags">
+  <img src="docs/screenshots/overview-dark.png" width="260" alt="Overview with privacy score and container breakdown">
+  <img src="docs/screenshots/live-dark.png" width="260" alt="Live monitor of cookie changes">
+</p>
+<p align="center">
+  <img src="docs/screenshots/editor-light.png" width="260" alt="Cookie editor">
+  <img src="docs/screenshots/backup-light.png" width="260" alt="Backup tab with export options">
+</p>
+
 ## Features
 
 | Tab | What you can do |
@@ -44,7 +56,7 @@
 
 ## Install
 
-**From Firefox Add-ons**: search "Cookie Manager Pro" on [addons.mozilla.org](https://addons.mozilla.org).
+**From Firefox Add-ons** (recommended): [**Get Cookie Manager Pro**](https://addons.mozilla.org/firefox/addon/cookie_manager/)
 
 **Manual install** (temporary, until Firefox restarts):
 1. Download this repository (green **Code** button > **Download ZIP**) and unzip it.

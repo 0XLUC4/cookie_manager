@@ -429,6 +429,7 @@ input[type="checkbox"]:not(.switch-row input):active { transform: scale(0.88); }
   background: var(--surface); border: 1px solid var(--border); font-size: 12px; animation: slide-in 0.3s var(--ease);
 }
 .event-time { font: 10.5px var(--mono); color: var(--muted); white-space: nowrap; }
+.event .pill { min-width: 74px; text-align: center; }
 .event-info { flex: 1; min-width: 0; }
 .event-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .event-domain { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
