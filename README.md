@@ -15,17 +15,6 @@
 
 ---
 
-## What's new in 3.1
-
-- **Containers fixed** ([#1](https://github.com/0XLUC4/cookie_manager/issues/1)): cookies from every Firefox container are now loaded, filtered, edited and deleted in the right container.
-- **Total Cookie Protection**: partitioned cookies are shown (tagged "Partitioned") and handled correctly.
-- **New design**: rounded, modern interface with light / dark / system theme and smooth animations.
-- **Current site card**: see, filter or clear the cookies of the tab you are on in one click.
-- **Undo everywhere**: every deletion shows an "Undo" button.
-- **Clear wording**: badges spelled out with explanations, help text in every section.
-- **Translations actually applied**: switching language updates the whole interface instantly.
-- Many fixes: double click handler, `Del` key while typing, timezone shift in the expiry editor, "Replace existing" import option ignored, Netscape `#HttpOnly_` lines, crash on large encrypted exports, unescaped HTML, shortcut conflicting with Firefox DevTools.
-
 ## Features
 
 | Tab | What you can do |
@@ -57,39 +46,10 @@
 
 **From Firefox Add-ons**: search "Cookie Manager Pro" on [addons.mozilla.org](https://addons.mozilla.org).
 
-**From source** (temporary, for testing):
-1. Clone this repository.
+**Manual install** (temporary, until Firefox restarts):
+1. Download this repository (green **Code** button > **Download ZIP**) and unzip it.
 2. Open `about:debugging#/runtime/this-firefox`.
-3. Click **Load Temporary Add-on** and pick `manifest.json` at the root of the repo.
-
-## Development
-
-Requires Node.js 20+ and [pnpm](https://pnpm.io).
-
-```bash
-pnpm install      # installs web-ext
-pnpm start        # launches a Firefox with the extension loaded, auto-reload on save
-pnpm lint         # validates the extension like addons.mozilla.org does
-pnpm build        # creates dist/cookie_manager_pro-3.1.0.zip
-```
-
-### Publish a new version from the console
-
-1. Bump `version` in `manifest.json` (and `package.json`).
-2. Create API keys once at <https://addons.mozilla.org/developers/addon/api/key/>.
-3. Run:
-
-```bash
-WEB_EXT_API_KEY=user:xxxx WEB_EXT_API_SECRET=yyyy pnpm sign
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:WEB_EXT_API_KEY="user:xxxx"; $env:WEB_EXT_API_SECRET="yyyy"; pnpm sign
-```
-
-`web-ext sign --channel=listed` uploads the build to addons.mozilla.org and submits it for review.
+3. Click **Load Temporary Add-on** and pick the `manifest.json` file from the unzipped folder.
 
 ## Permissions
 
@@ -104,17 +64,7 @@ $env:WEB_EXT_API_KEY="user:xxxx"; $env:WEB_EXT_API_SECRET="yyyy"; pnpm sign
 
 ## Privacy
 
-Everything stays on your device. The extension makes **no network request**, has **no analytics** and uses **no third-party code**. Password-protected exports use AES-256-GCM with a PBKDF2 key (310,000 iterations).
-
-## Project structure
-
-```
-manifest.json        extension manifest
-background.js        monitor, rules engine, protection, import
-lib/cookies.js       shared container-aware cookie helpers
-sidebar/             user interface (HTML, CSS, JS, translations)
-icons/               extension icons
-```
+Everything stays on your device. The extension makes **no network request**, has **no analytics** and uses **no third-party code**. Password-protected exports are encrypted with AES-256.
 
 ## License
 
