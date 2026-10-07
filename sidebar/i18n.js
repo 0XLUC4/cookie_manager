@@ -1,5 +1,5 @@
 /**
- * Cookie Manager Pro v3.0 - i18n
+ * Cookie Manager Pro v3.1 - i18n
  * Languages: EN, FR, ES, DE, PT, IT, JA, ZH, AR
  */
 
@@ -500,46 +500,208 @@ const translations = {
   }
 };
 
+// ============ v3.1 STRINGS (other languages fall back to English) ============
+const translationsV31 = {
+  en: {
+    tabOverview: 'Overview', tabLive: 'Live', tabBackup: 'Backup', tabExport: 'Export', tabImport: 'Import',
+    currentSite: 'Current site', showThisSite: 'Show only this site', showAllSites: 'Show all sites', clearSite: 'Clear site',
+    searchCookies: 'Search name, domain or value', regexHint: 'Use a regular expression',
+    container: 'Container', defaultContainer: 'Default', privateContainer: 'Private browsing',
+    sortBy: 'Sort by', sortDirection: 'Reverse order', refresh: 'Refresh', toggleTheme: 'Switch light / dark',
+    hintSecure: 'Only sent over HTTPS', hintHttpOnly: 'Hidden from page scripts',
+    hintSession: 'Deleted when Firefox closes', hintTracker: 'Known advertising / tracking domain',
+    hintProtected: 'Locked: restored automatically if deleted', hintPartition: 'Isolated to one site by Total Cookie Protection',
+    hintCleanTrackers: 'Delete every cookie from known trackers', hintDeleteVisible: 'Delete every cookie shown in the list',
+    partitioned: 'Partitioned', sessionLabel: 'Session', noName: '(no name)',
+    countCookies: '{n} cookies', countDomains: '{n} sites', nSelected: '{n} selected',
+    loadMore: 'Show {n} more ({total} left)', andMore: '... and {n} more',
+    noCookiesYet: 'No cookies yet', noCookiesYetHint: 'Browse a website and its cookies will show up here.',
+    noMatchHint: 'Try another search or remove some filters.', resetFilters: 'Reset filters',
+    addCookie: 'Add cookie', cleanTrackersShort: 'Clean trackers', deleteVisible: 'Delete shown',
+    export: 'Export', delete: 'Delete', copy: 'Copy', load: 'Load', download: 'Download',
+    confirm: 'Confirm', close: 'Close', cancel: 'Cancel',
+    confirmDeleteCookies: 'Delete {n} cookies? You can undo right after.',
+    confirmDeleteSite: 'Delete {n} cookies of {site}? You will probably be logged out.',
+    cookiesDeleted: '{n} cookies deleted', protectedSkipped: '{n} protected kept', failedCount: '{n} failed',
+    allProtected: 'These cookies are protected. Unlock them first.', nothingToDelete: 'Nothing to delete',
+    cookieIsProtected: 'This cookie is protected. Unlock it first.', undoRestored: '{n} cookies restored',
+    noTrackers: 'No tracker cookies found', trackersCleaned: 'Trackers cleaned', cleanNTrackers: 'Clean {n} trackers',
+    editCookie: 'Edit cookie', createCookie: 'New cookie', cloneCookie: 'Duplicate',
+    cloneHint: 'Copy ready: change the name or domain, then Create.', expiration: 'Expires',
+    sessionHint: 'Leave empty for a session cookie (deleted when Firefox closes).',
+    sameSiteNone: 'None: sent everywhere', sameSiteLax: 'Lax: sent on normal links', sameSiteStrict: 'Strict: this site only',
+    nameDomainRequired: 'Name and domain are required', expiryInPast: 'Expiry date is in the past',
+    errorPrefix: 'Error: ', errorLoading: 'Could not load cookies', settingsSaved: 'Settings saved',
+    total: 'Total', sites: 'Sites', trackerCookies: 'Trackers', secureCookies: 'Secure', persistentCookies: 'Persistent',
+    privacyScore: 'Privacy score', privacyExplain: 'Based on how many cookies are secure, hidden from scripts, and not from trackers.',
+    scoreGood: 'Looking good', scoreOk: 'Could be better', scoreBad: 'Lots of tracking',
+    cookiesByType: 'Cookies by type', byContainer: 'By container', topDomains: 'Top sites',
+    topDomainsHint: 'Click a site to see its cookies.', noData: 'No data yet', sizeSummary: 'Total size: about {size} KB',
+    monitorLive: 'LIVE', monitorExplain: 'Every cookie created, changed or deleted by websites appears here in real time.',
+    filterEvents: 'Filter events', waitingChanges: 'Waiting for cookie changes',
+    waitingChangesHint: 'Open or reload a website to see activity.', monitorFilterAll: 'All',
+    whatToExport: 'What to export', scopeAll: 'All cookies', currentSiteOnly: 'Current site only', customDomain: 'Custom domain',
+    excludeTrackers: 'Exclude known trackers', formatJsonHint: 'best to re-import here', formatCsvHint: 'spreadsheet',
+    security: 'Security', aesEncryption: 'Protect with a password (AES-256)',
+    encryptJsonOnly: 'Password protection is only available for JSON.', passwordPlaceholder: 'Password (min 4 characters)',
+    readyToExport: 'Ready to export', exportCookies: 'Export cookies', copyToClipboard: 'Copy as JSON',
+    exportDone: '{n} cookies exported', dropFileHere: 'Drop a cookie file here',
+    orClickToSelect: 'or click to choose (JSON, cookies.txt, CSV, HAR)',
+    encryptedFile: 'This file is password protected', decryptPassword: 'Password', decrypt: 'Unlock',
+    options: 'Options', overwriteExisting: 'Replace cookies that already exist', previewBefore: 'Preview before importing',
+    importing: 'Importing', skipped: 'Skipped', importDone: '{n} cookies imported', importSummary: '{imported} imported, {failed} failed',
+    saveProfile: 'Save a snapshot', profileName: 'Profile name (e.g. Work)',
+    profilesExplain: 'A profile is a snapshot of all your cookies. Load it later to restore every login at once.',
+    savedProfiles: 'Saved profiles', noProfilesHint: 'Save your first snapshot above.', profileNameRequired: 'Give the profile a name',
+    confirmLoadProfile: 'Load "{name}"? {n} cookies will be imported.', confirmDeleteProfile: 'Delete profile "{name}"?',
+    compareProfiles: 'Compare two profiles', selectTwoProfiles: 'Pick two different profiles',
+    profilesIdentical: 'Profiles are identical', diffSummary: '+{added} added, -{removed} removed, ~{modified} changed',
+    autoBackup: 'Automatic backup', enableAutoBackup: 'Download a backup file regularly',
+    addRule: 'New rule', rulesExplain: 'Rules run automatically every time a website sets a cookie.',
+    ruleWhen: 'When the cookie', ruleThen: 'Then', ruleMatchDomain: 'domain contains', ruleMatchName: 'name contains',
+    ruleMatchRegex: 'matches regex', ruleActionDelete: 'Delete it', ruleActionProtect: 'Protect it',
+    after: 'after', minutes: 'min', matchValue: 'e.g. doubleclick.net', addRuleBtn: 'Add rule', activeRules: 'Your rules',
+    noRulesHint: 'Example: delete every cookie whose domain contains "doubleclick".',
+    ruleValueRequired: 'Enter a value to match', regexInvalid: 'Invalid regular expression', rulesImported: '{n} rules imported',
+    importRules: 'Import', exportRules: 'Export', ruleEnabled: 'Enabled',
+    historyTitle: 'Action history', noHistoryHint: 'Your deletions, imports and edits will be listed here.',
+    confirmClearHistory: 'Clear the whole history?', monitorClear: 'Clear',
+    theme: 'Theme', themeSystem: 'System', themeDark: 'Dark', themeLight: 'Light', resetDefaults: 'Reset to defaults',
+    openSidebar: 'Open sidebar', focusSearch: 'Search', quickExport: 'Quick export', undoAction: 'Undo',
+    footerTagline: '100% offline, zero data collection'
+  },
+  fr: {
+    tabCookies: 'Cookies', tabOverview: 'Aperçu', tabLive: 'Direct', tabBackup: 'Sauvegarde', tabExport: 'Exporter',
+    tabImport: 'Importer', tabProfiles: 'Profils', tabRules: 'Règles', tabHistory: 'Historique',
+    currentSite: 'Site actuel', showThisSite: 'Afficher ce site uniquement', showAllSites: 'Afficher tous les sites', clearSite: 'Vider le site',
+    searchCookies: 'Chercher un nom, domaine ou valeur', regexHint: 'Utiliser une expression régulière',
+    container: 'Conteneur', allContainers: 'Tous les conteneurs', defaultContainer: 'Par défaut', privateContainer: 'Navigation privée',
+    allDomains: 'Tous les domaines', sortBy: 'Trier par', sortDirection: 'Inverser l’ordre', refresh: 'Actualiser',
+    toggleTheme: 'Basculer clair / sombre', sortByName: 'Nom', sortByDomain: 'Domaine', sortByExpiry: 'Expiration', sortBySize: 'Taille',
+    filterProtected: 'Protégé',
+    hintSecure: 'Envoyé uniquement en HTTPS', hintHttpOnly: 'Invisible pour les scripts de la page',
+    hintSession: 'Supprimé à la fermeture de Firefox', hintTracker: 'Domaine publicitaire ou de pistage connu',
+    hintProtected: 'Verrouillé : restauré automatiquement s’il est supprimé', hintPartition: 'Isolé sur un seul site par la protection totale contre les cookies',
+    hintCleanTrackers: 'Supprimer tous les cookies des traqueurs connus', hintDeleteVisible: 'Supprimer tous les cookies affichés',
+    partitioned: 'Partitionné', sessionLabel: 'Session', noName: '(sans nom)',
+    countCookies: '{n} cookies', countDomains: '{n} sites', nSelected: '{n} sélectionnés',
+    loadMore: 'Afficher {n} de plus ({total} restants)', andMore: '... et {n} de plus',
+    noCookiesFound: 'Aucun cookie trouvé', noCookiesYet: 'Aucun cookie pour l’instant',
+    noCookiesYetHint: 'Visitez un site et ses cookies apparaîtront ici.',
+    noMatchHint: 'Essayez une autre recherche ou retirez des filtres.', resetFilters: 'Réinitialiser les filtres',
+    addCookie: 'Ajouter un cookie', cleanTrackersShort: 'Nettoyer les traqueurs', deleteVisible: 'Supprimer l’affichage',
+    export: 'Exporter', delete: 'Supprimer', copy: 'Copier', load: 'Charger', download: 'Télécharger',
+    confirm: 'Confirmer', close: 'Fermer', cancel: 'Annuler', save: 'Enregistrer', create: 'Créer', selectAll: 'Tout sélectionner',
+    confirmDeleteCookies: 'Supprimer {n} cookies ? Vous pourrez annuler juste après.',
+    confirmDeleteSite: 'Supprimer {n} cookies de {site} ? Vous serez sûrement déconnecté.',
+    cookiesDeleted: '{n} cookies supprimés', protectedSkipped: '{n} protégés conservés', failedCount: '{n} en échec',
+    allProtected: 'Ces cookies sont protégés. Déverrouillez-les d’abord.', nothingToDelete: 'Rien à supprimer',
+    cookieIsProtected: 'Ce cookie est protégé. Déverrouillez-le d’abord.', undoRestored: '{n} cookies restaurés',
+    noTrackers: 'Aucun cookie de traqueur trouvé', trackersCleaned: 'Traqueurs nettoyés', cleanNTrackers: 'Nettoyer {n} traqueurs',
+    protectCookie: 'Protéger', unprotectCookie: 'Déverrouiller', copyCookieValue: 'Copier la valeur',
+    protectionEnabled: 'Cookie protégé', protectionDisabled: 'Protection retirée', copiedToClipboard: 'Copié !',
+    editCookie: 'Modifier le cookie', createCookie: 'Nouveau cookie', cloneCookie: 'Dupliquer',
+    cloneHint: 'Copie prête : changez le nom ou le domaine, puis Créer.', name: 'Nom', value: 'Valeur', domain: 'Domaine',
+    path: 'Chemin', expiration: 'Expire le', sessionHint: 'Laissez vide pour un cookie de session (supprimé à la fermeture de Firefox).',
+    sameSiteNone: 'None : envoyé partout', sameSiteLax: 'Lax : envoyé sur les liens normaux', sameSiteStrict: 'Strict : ce site uniquement',
+    nameDomainRequired: 'Le nom et le domaine sont obligatoires', expiryInPast: 'La date d’expiration est passée',
+    cookieSaved: 'Cookie enregistré', cookieCreated: 'Cookie créé',
+    errorPrefix: 'Erreur : ', errorLoading: 'Impossible de charger les cookies', settingsSaved: 'Paramètres enregistrés',
+    total: 'Total', sites: 'Sites', trackerCookies: 'Traqueurs', secureCookies: 'Sécurisés', persistentCookies: 'Persistants',
+    filterTracker: 'Traqueur', privacyScore: 'Score de confidentialité',
+    privacyExplain: 'Calculé selon la part de cookies sécurisés, cachés aux scripts et hors traqueurs.',
+    scoreGood: 'Tout va bien', scoreOk: 'Peut mieux faire', scoreBad: 'Beaucoup de pistage',
+    cookiesByType: 'Cookies par type', byContainer: 'Par conteneur', topDomains: 'Sites principaux',
+    topDomainsHint: 'Cliquez sur un site pour voir ses cookies.', noData: 'Pas encore de données', sizeSummary: 'Taille totale : environ {size} Ko',
+    monitorLive: 'DIRECT', monitorPause: 'Pause', monitorResume: 'Reprendre', monitorClear: 'Effacer',
+    monitorExplain: 'Chaque cookie créé, modifié ou supprimé par les sites apparaît ici en temps réel.',
+    eventCreated: 'Créé', eventUpdated: 'Modifié', eventDeleted: 'Supprimé', monitorFilterAll: 'Tous',
+    filterEvents: 'Filtrer les événements', waitingChanges: 'En attente de changements',
+    waitingChangesHint: 'Ouvrez ou rechargez un site pour voir l’activité.',
+    whatToExport: 'Quoi exporter', scopeAll: 'Tous les cookies', currentSiteOnly: 'Site actuel uniquement', customDomain: 'Domaine personnalisé',
+    excludeTrackers: 'Exclure les traqueurs connus', formatJsonHint: 'idéal pour réimporter ici', formatCsvHint: 'tableur',
+    format: 'Format', security: 'Sécurité', aesEncryption: 'Protéger par mot de passe (AES-256)',
+    encryptJsonOnly: 'La protection par mot de passe est disponible uniquement en JSON.', passwordPlaceholder: 'Mot de passe (4 caractères min.)',
+    passwordTooShort: 'Le mot de passe doit faire au moins 4 caractères', noCookiesToExport: 'Aucun cookie à exporter',
+    readyToExport: 'Prêts à exporter', exportCookies: 'Exporter les cookies', copyToClipboard: 'Copier en JSON',
+    exportDone: '{n} cookies exportés', dropFileHere: 'Déposez un fichier de cookies ici',
+    orClickToSelect: 'ou cliquez pour choisir (JSON, cookies.txt, CSV, HAR)',
+    encryptedFile: 'Ce fichier est protégé par mot de passe', decryptPassword: 'Mot de passe', decrypt: 'Déverrouiller',
+    wrongPassword: 'Mot de passe incorrect', invalidFile: 'Format de fichier non reconnu',
+    options: 'Options', overwriteExisting: 'Remplacer les cookies existants', previewBefore: 'Aperçu avant import',
+    preview: 'Aperçu', import: 'Importer', importing: 'Import en cours', imported: 'Importés', skipped: 'Ignorés', failed: 'Échecs',
+    importDone: '{n} cookies importés', importPartial: 'Terminé, mais certains cookies ont échoué.', importSummary: '{imported} importés, {failed} échecs',
+    saveProfile: 'Enregistrer un instantané', profileName: 'Nom du profil (ex. Travail)',
+    profilesExplain: 'Un profil est un instantané de tous vos cookies. Chargez-le plus tard pour retrouver toutes vos connexions.',
+    savedProfiles: 'Profils enregistrés', noProfiles: 'Aucun profil', noProfilesHint: 'Enregistrez votre premier instantané ci-dessus.',
+    profileNameRequired: 'Donnez un nom au profil', profileSaved: 'Profil enregistré', profileDeleted: 'Profil supprimé',
+    confirmLoadProfile: 'Charger « {name} » ? {n} cookies seront importés.', confirmDeleteProfile: 'Supprimer le profil « {name} » ?',
+    compareProfiles: 'Comparer deux profils', compare: 'Comparer', selectTwoProfiles: 'Choisissez deux profils différents',
+    profilesIdentical: 'Les profils sont identiques', diffSummary: '+{added} ajoutés, -{removed} retirés, ~{modified} modifiés',
+    autoBackup: 'Sauvegarde automatique', enableAutoBackup: 'Télécharger une sauvegarde régulièrement',
+    everyHour: 'Toutes les heures', every6Hours: 'Toutes les 6 heures', everyDay: 'Chaque jour', everyWeek: 'Chaque semaine',
+    neverBackedUp: 'Jamais sauvegardé', lastBackup: 'Dernière sauvegarde :',
+    addRule: 'Nouvelle règle', rulesExplain: 'Les règles s’appliquent automatiquement dès qu’un site crée un cookie.',
+    ruleWhen: 'Quand le cookie', ruleThen: 'Alors', ruleMatchDomain: 'a un domaine contenant', ruleMatchName: 'a un nom contenant',
+    ruleMatchRegex: 'correspond à la regex', ruleActionDelete: 'Le supprimer', ruleActionProtect: 'Le protéger',
+    ruleDelay: 'Délai (minutes)', after: 'après', minutes: 'min', matchValue: 'ex. doubleclick.net', addRuleBtn: 'Ajouter la règle',
+    activeRules: 'Vos règles', noRules: 'Aucune règle', noRulesHint: 'Exemple : supprimer tout cookie dont le domaine contient « doubleclick ».',
+    ruleValueRequired: 'Entrez une valeur à rechercher', regexInvalid: 'Expression régulière invalide', rulesImported: '{n} règles importées',
+    ruleAdded: 'Règle ajoutée', ruleDeleted: 'Règle supprimée', importRules: 'Importer', exportRules: 'Exporter', ruleEnabled: 'Activée',
+    historyTitle: 'Historique des actions', noHistory: 'Aucune action', noHistoryHint: 'Vos suppressions, imports et modifications apparaîtront ici.',
+    confirmClearHistory: 'Effacer tout l’historique ?', undoAction: 'Annuler', noUndoAvailable: 'Rien à annuler',
+    settings: 'Paramètres', language: 'Langue', theme: 'Thème', themeSystem: 'Système', themeDark: 'Sombre', themeLight: 'Clair',
+    trackerDomains: 'Domaines traqueurs (un par ligne)', resetDefaults: 'Valeurs par défaut', keyboardShortcuts: 'Raccourcis clavier',
+    openSidebar: 'Ouvrir le panneau', focusSearch: 'Rechercher', quickExport: 'Export rapide', deleteSelected: 'Supprimer la sélection',
+    about: 'À propos', footerTagline: '100% hors ligne, aucune donnée collectée'
+  }
+};
+
+for (const [lang, strings] of Object.entries(translationsV31)) Object.assign(translations[lang], strings);
+
 let currentLang = 'en';
 
-function setLanguage(lang) {
-  currentLang = lang;
-  localStorage.setItem('cookieManagerLang', lang);
+function applyDirection(lang) {
   document.documentElement.lang = lang;
-  if (lang === 'ar') {
-    document.documentElement.dir = 'rtl';
-  } else {
-    document.documentElement.dir = 'ltr';
-  }
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
 }
 
-function t(key) {
-  return translations[currentLang]?.[key] || translations['en'][key] || key;
+function setLanguage(lang) {
+  currentLang = translations[lang] ? lang : 'en';
+  localStorage.setItem('cookieManagerLang', currentLang);
+  applyDirection(currentLang);
+}
+
+/**
+ * Translate a key, replacing {placeholders} with values from `vars`.
+ * @param {string} key
+ * @param {Record<string, string|number>} [vars]
+ */
+function t(key, vars) {
+  const text = translations[currentLang]?.[key] ?? translations.en[key] ?? key;
+  return vars ? text.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match)) : text;
+}
+
+/** Fill every [data-i18n], [data-i18n-placeholder] and [data-i18n-title] element under `root`. */
+function applyTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  root.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+    if (!el.textContent.trim()) el.setAttribute('aria-label', el.title);
+  });
 }
 
 function loadLanguage() {
   const saved = localStorage.getItem('cookieManagerLang');
-  if (saved && translations[saved]) {
-    currentLang = saved;
-  } else {
-    const browserLang = navigator.language.split('-')[0];
-    if (translations[browserLang]) {
-      currentLang = browserLang;
-    }
-  }
-  document.documentElement.lang = currentLang;
-  if (currentLang === 'ar') {
-    document.documentElement.dir = 'rtl';
-  }
-}
-
-function getAvailableLanguages() {
-  return Object.keys(translations);
+  const browserLang = (navigator.language || 'en').split('-')[0];
+  currentLang = translations[saved] ? saved : translations[browserLang] ? browserLang : 'en';
+  applyDirection(currentLang);
 }
 
 const languageNames = {
-  en: 'English', fr: 'Francais', es: 'Espanol', de: 'Deutsch',
-  pt: 'Portugues', it: 'Italiano', ja: '日本語', zh: '中文', ar: 'العربية'
+  en: 'English', fr: 'Français', es: 'Español', de: 'Deutsch',
+  pt: 'Português', it: 'Italiano', ja: '日本語', zh: '中文', ar: 'العربية'
 };
 
 loadLanguage();

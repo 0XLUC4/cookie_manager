@@ -1,339 +1,167 @@
 /**
- * Cookie Manager Pro v3.0 - Background Script
- * Cookie monitor, rule engine, protection, import
+ * Cookie Manager Pro v3.1 - Background Script
+ * Cookie monitor, rule engine, protection, import. Uses helpers from lib/cookies.js.
  */
 
 // ============ COOKIE MONITOR ============
 const monitorLog = [];
 const MAX_LOG = 500;
 
+/** created | updated | deleted. Firefox reports an overwrite as removed:true + cause 'overwrite'. */
+function eventType(changeInfo) {
+  if (changeInfo.removed) return changeInfo.cause === 'overwrite' ? 'updated' : 'deleted';
+  return 'created';
+}
+
 browser.cookies.onChanged.addListener((changeInfo) => {
+  const { cookie } = changeInfo;
   const entry = {
     id: Date.now() + Math.random(),
     timestamp: Date.now(),
+    type: eventType(changeInfo),
     removed: changeInfo.removed,
+    cause: changeInfo.cause,
     cookie: {
-      name: changeInfo.cookie.name,
-      domain: changeInfo.cookie.domain,
-      value: changeInfo.cookie.value,
-      secure: changeInfo.cookie.secure,
-      httpOnly: changeInfo.cookie.httpOnly,
-      path: changeInfo.cookie.path,
-      expirationDate: changeInfo.cookie.expirationDate,
-      sameSite: changeInfo.cookie.sameSite,
-      storeId: changeInfo.cookie.storeId
-    },
-    cause: changeInfo.cause
+      name: cookie.name, domain: cookie.domain, path: cookie.path,
+      secure: cookie.secure, httpOnly: cookie.httpOnly, storeId: cookie.storeId
+    }
   };
 
-  monitorLog.unshift(entry);
-  if (monitorLog.length > MAX_LOG) monitorLog.length = MAX_LOG;
-
-  // Notify sidebar
-  browser.runtime.sendMessage({
-    action: 'cookieChanged',
-    entry
-  }).catch(() => {});
-
-  // Check rules
-  checkRulesForCookie(changeInfo.cookie, changeInfo.removed);
-
-  // Check protection (restore if protected cookie was removed)
-  if (changeInfo.removed && changeInfo.cause !== 'overwrite') {
-    checkProtection(changeInfo.cookie);
+  // The "added" half of an overwrite is noise: the "updated" event already covers it.
+  if (!(changeInfo.cause === 'overwrite' && !changeInfo.removed)) {
+    monitorLog.unshift(entry);
+    if (monitorLog.length > MAX_LOG) monitorLog.length = MAX_LOG;
   }
+
+  browser.runtime.sendMessage({ action: 'cookieChanged', entry }).catch(() => {});
+
+  if (!changeInfo.removed) checkRulesForCookie(cookie);
+  else if (changeInfo.cause !== 'overwrite' && changeInfo.cause !== 'expired') checkProtection(cookie);
 });
 
-// ============ COOKIE PROTECTION ============
+// ============ PROTECTION ============
+async function getProtectedList() {
+  const data = await browser.storage.local.get('protectedCookies');
+  return data.protectedCookies || [];
+}
+
+/** v3.0 used "name|||domain" keys without container: migrate them to cookieKey(). */
+async function migrateProtectedList() {
+  const list = await getProtectedList();
+  if (!list.some(p => p.key?.includes('|||'))) return;
+  const migrated = list.map(p => {
+    if (!p.key?.includes('|||')) return p;
+    const entry = { ...p, storeId: p.storeId || DEFAULT_STORE_ID };
+    return { ...entry, key: cookieKey(entry) };
+  });
+  await browser.storage.local.set({ protectedCookies: migrated });
+}
+
 async function checkProtection(cookie) {
   try {
-    const data = await browser.storage.local.get('protectedCookies');
-    const protectedList = data.protectedCookies || [];
-    const key = `${cookie.name}|||${cookie.domain}`;
-    const entry = protectedList.find(p => p.key === key);
-
-    if (entry) {
-      // Restore the cookie
-      const domain = cookie.domain.replace(/^\./, '');
-      const protocol = cookie.secure ? 'https://' : 'http://';
-      const url = protocol + domain + (cookie.path || '/');
-
-      const cookieDetails = {
-        url,
-        name: cookie.name,
-        value: entry.value || cookie.value || '',
-        path: cookie.path || '/',
-        secure: Boolean(cookie.secure),
-        httpOnly: Boolean(cookie.httpOnly),
-        sameSite: cookie.sameSite || 'no_restriction'
-      };
-
-      if (cookie.expirationDate) {
-        cookieDetails.expirationDate = cookie.expirationDate;
-      }
-
-      if (cookie.domain && cookie.domain.startsWith('.')) {
-        cookieDetails.domain = cookie.domain;
-      }
-
-      try {
-        await browser.cookies.set(cookieDetails);
-      } catch (e) {
-        // Silently fail
-      }
-    }
-  } catch (e) {}
-}
-
-// ============ RULE ENGINE ============
-async function checkRulesForCookie(cookie, removed) {
-  if (removed) return;
-
-  try {
-    const data = await browser.storage.local.get('cookieRules');
-    const rules = data.cookieRules || [];
-
-    for (const rule of rules) {
-      if (!rule.enabled) continue;
-
-      let match = false;
-
-      if (rule.matchType === 'domain' && cookie.domain.includes(rule.matchValue)) {
-        match = true;
-      } else if (rule.matchType === 'name' && cookie.name.includes(rule.matchValue)) {
-        match = true;
-      } else if (rule.matchType === 'regex') {
-        try {
-          const re = new RegExp(rule.matchValue, 'i');
-          match = re.test(cookie.name) || re.test(cookie.domain);
-        } catch (e) {}
-      }
-
-      if (match) {
-        if (rule.action === 'delete') {
-          if (rule.delay && rule.delay > 0) {
-            setTimeout(() => deleteCookie(cookie), rule.delay * 60 * 1000);
-          } else {
-            await deleteCookie(cookie);
-          }
-        } else if (rule.action === 'protect') {
-          await protectCookie(cookie);
-        }
-      }
-    }
-  } catch (e) {}
-}
-
-async function deleteCookie(cookie) {
-  try {
-    const domain = cookie.domain.replace(/^\./, '');
-    const protocol = cookie.secure ? 'https://' : 'http://';
-    const url = protocol + domain + (cookie.path || '/');
-    await browser.cookies.remove({ url, name: cookie.name });
-  } catch (e) {}
+    const entry = (await getProtectedList()).find(p => p.key === cookieKey(cookie));
+    if (!entry) return;
+    const isExpired = entry.expirationDate && entry.expirationDate < Date.now() / 1000;
+    await setCookie({ ...cookie, value: entry.value ?? cookie.value, expirationDate: isExpired ? undefined : entry.expirationDate });
+  } catch (e) {
+    console.warn('[CookieManager] restore protected cookie failed', e);
+  }
 }
 
 async function protectCookie(cookie) {
-  try {
-    const data = await browser.storage.local.get('protectedCookies');
-    const protectedList = data.protectedCookies || [];
-    const key = `${cookie.name}|||${cookie.domain}`;
-    if (!protectedList.find(p => p.key === key)) {
-      protectedList.push({
-        key,
-        name: cookie.name,
-        domain: cookie.domain,
-        value: cookie.value,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly,
-        path: cookie.path,
-        expirationDate: cookie.expirationDate,
-        sameSite: cookie.sameSite
-      });
-      await browser.storage.local.set({ protectedCookies: protectedList });
-    }
-  } catch (e) {}
+  const list = await getProtectedList();
+  const key = cookieKey(cookie);
+  if (list.some(p => p.key === key)) return;
+  list.push({ key, ...serializeCookie(cookie) });
+  await browser.storage.local.set({ protectedCookies: list });
 }
 
-// ============ SIDEBAR TOGGLE ============
-browser.browserAction.onClicked.addListener(() => {
-  browser.sidebarAction.toggle();
-});
-
-// ============ MESSAGE HANDLER ============
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'importCookies') {
-    importCookies(message.cookies)
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-
-  if (message.action === 'getMonitorLog') {
-    sendResponse({ log: monitorLog });
-    return false;
-  }
-
-  if (message.action === 'clearMonitorLog') {
-    monitorLog.length = 0;
-    sendResponse({ success: true });
-    return false;
-  }
-
-  if (message.action === 'getContainers') {
-    browser.contextualIdentities.query({})
-      .then(containers => sendResponse({ containers }))
-      .catch(() => sendResponse({ containers: [] }));
-    return true;
-  }
-
-  if (message.action === 'deleteCookie') {
-    deleteCookie(message.cookie)
-      .then(() => sendResponse({ success: true }))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-
-  if (message.action === 'protectCookie') {
-    protectCookie(message.cookie)
-      .then(() => sendResponse({ success: true }))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-
-  if (message.action === 'unprotectCookie') {
-    unprotectCookie(message.name, message.domain)
-      .then(() => sendResponse({ success: true }))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-
-  if (message.action === 'cleanTrackers') {
-    cleanTrackers(message.trackers)
-      .then(result => sendResponse(result))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-
-  if (message.action === 'cleanExpired') {
-    cleanExpired()
-      .then(result => sendResponse(result))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-});
-
-async function unprotectCookie(name, domain) {
-  const data = await browser.storage.local.get('protectedCookies');
-  let protectedList = data.protectedCookies || [];
-  const key = `${name}|||${domain}`;
-  protectedList = protectedList.filter(p => p.key !== key);
-  await browser.storage.local.set({ protectedCookies: protectedList });
+async function unprotectCookie(cookie) {
+  const key = cookieKey(cookie);
+  const list = (await getProtectedList()).filter(p => p.key !== key);
+  await browser.storage.local.set({ protectedCookies: list });
 }
 
-async function cleanTrackers(trackerDomains) {
-  const cookies = await browser.cookies.getAll({});
-  let deleted = 0;
-  for (const c of cookies) {
-    if (trackerDomains.some(t => c.domain.includes(t))) {
-      await deleteCookie(c);
-      deleted++;
-    }
-  }
-  return { success: true, deleted };
-}
-
-async function cleanExpired() {
-  const cookies = await browser.cookies.getAll({});
-  const now = Date.now() / 1000;
-  let deleted = 0;
-  for (const c of cookies) {
-    if (c.expirationDate && c.expirationDate < now) {
-      await deleteCookie(c);
-      deleted++;
-    }
-  }
-  return { success: true, deleted };
-}
-
-// ============ IMPORT COOKIES ============
-async function importCookies(cookies) {
-  let imported = 0;
-  let failed = 0;
-
-  for (const cookie of cookies) {
+// ============ RULE ENGINE ============
+function ruleMatches(rule, cookie) {
+  const value = String(rule.matchValue || '');
+  if (rule.storeId && rule.storeId !== cookie.storeId) return false;
+  if (rule.matchType === 'domain') return cookie.domain.includes(value);
+  if (rule.matchType === 'name') return cookie.name.includes(value);
+  if (rule.matchType === 'regex') {
     try {
-      if (!cookie.name || !cookie.domain) {
-        failed++;
-        continue;
+      const re = new RegExp(value, 'i');
+      return re.test(cookie.name) || re.test(cookie.domain);
+    } catch (e) { return false; }
+  }
+  return false;
+}
+
+async function checkRulesForCookie(cookie) {
+  try {
+    const { cookieRules = [] } = await browser.storage.local.get('cookieRules');
+    for (const rule of cookieRules) {
+      if (!rule.enabled || !ruleMatches(rule, cookie)) continue;
+      if (rule.action === 'protect') {
+        await protectCookie(cookie);
+      } else if (rule.action === 'delete') {
+        const isProtected = (await getProtectedList()).some(p => p.key === cookieKey(cookie));
+        if (isProtected) continue;
+        const delayMs = Math.max(0, Number(rule.delay) || 0) * 60 * 1000;
+        setTimeout(() => removeCookie(cookie).catch(() => {}), delayMs);
       }
+    }
+  } catch (e) {
+    console.warn('[CookieManager] rule check failed', e);
+  }
+}
 
-      let domain = cookie.domain;
-      if (domain.startsWith('.')) {
-        domain = domain.substring(1);
-      }
+// ============ IMPORT ============
+/**
+ * @param {object[]} cookies cookie-like objects (from any supported format)
+ * @param {{overwrite?: boolean}} options overwrite=false skips cookies that already exist
+ */
+async function importCookies(cookies, { overwrite = true } = {}) {
+  const validStores = new Set(await listStoreIds());
+  const existingKeys = overwrite ? null : new Set((await getAllCookiesEverywhere()).map(cookieKey));
+  const nowSec = Date.now() / 1000;
+  let imported = 0, failed = 0, skipped = 0;
 
-      const protocol = cookie.secure ? 'https://' : 'http://';
-      const url = protocol + domain + (cookie.path || '/');
-
-      let sameSite = 'no_restriction';
-      if (cookie.sameSite) {
-        const s = String(cookie.sameSite).toLowerCase();
-        if (s === 'strict') sameSite = 'strict';
-        else if (s === 'lax') sameSite = 'lax';
-        else if (s === 'none' || s === 'no_restriction') sameSite = 'no_restriction';
-      }
-
-      if (sameSite === 'no_restriction' && !cookie.secure) {
-        sameSite = 'lax';
-      }
-
-      const cookieDetails = {
-        url,
-        name: String(cookie.name),
-        value: String(cookie.value || ''),
-        path: cookie.path || '/',
-        secure: Boolean(cookie.secure),
-        httpOnly: Boolean(cookie.httpOnly),
-        sameSite
-      };
-
-      if (cookie.expirationDate && cookie.expirationDate > Date.now() / 1000) {
-        cookieDetails.expirationDate = cookie.expirationDate;
-      } else if (!cookie.session) {
-        cookieDetails.expirationDate = Math.floor(Date.now() / 1000) + 31536000;
-      }
-
-      try {
-        if (cookie.domain && cookie.domain.startsWith('.')) {
-          cookieDetails.domain = cookie.domain;
-        }
-        await browser.cookies.set(cookieDetails);
-        imported++;
-      } catch (e1) {
-        try {
-          delete cookieDetails.domain;
-          await browser.cookies.set(cookieDetails);
-          imported++;
-        } catch (e2) {
-          if (!cookie.secure) {
-            try {
-              cookieDetails.url = 'https://' + domain + (cookie.path || '/');
-              cookieDetails.secure = true;
-              await browser.cookies.set(cookieDetails);
-              imported++;
-            } catch (e3) {
-              failed++;
-            }
-          } else {
-            failed++;
-          }
-        }
-      }
+  for (const raw of cookies) {
+    if (!raw || !raw.name || !raw.domain) { failed++; continue; }
+    const cookie = { ...raw, storeId: validStores.has(raw.storeId) ? raw.storeId : DEFAULT_STORE_ID };
+    if (!(cookie.expirationDate > nowSec)) {
+      cookie.expirationDate = cookie.session ? undefined : Math.floor(nowSec) + 31536000;
+    }
+    if (existingKeys?.has(cookieKey(cookie))) { skipped++; continue; }
+    try {
+      await setCookie(cookie);
+      imported++;
     } catch (e) {
       failed++;
     }
   }
-
-  return { success: true, imported, failed };
+  return { success: true, imported, failed, skipped };
 }
+
+// ============ UI ============
+browser.browserAction.onClicked.addListener(() => browser.sidebarAction.toggle());
+
+// ============ MESSAGES ============
+const handlers = {
+  importCookies: (m) => importCookies(m.cookies, m.options),
+  getMonitorLog: () => ({ log: monitorLog }),
+  clearMonitorLog: () => { monitorLog.length = 0; return { success: true }; },
+  protectCookie: async (m) => { await protectCookie(m.cookie); return { success: true }; },
+  unprotectCookie: async (m) => { await unprotectCookie(m.cookie); return { success: true }; }
+};
+
+browser.runtime.onMessage.addListener((message) => {
+  const handler = handlers[message?.action];
+  if (!handler) return undefined;
+  return Promise.resolve()
+    .then(() => handler(message))
+    .catch(e => ({ success: false, error: e.message }));
+});
+
+migrateProtectedList().catch(e => console.warn('[CookieManager] migration failed', e));

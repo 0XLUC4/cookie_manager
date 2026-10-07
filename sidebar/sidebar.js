@@ -1,1064 +1,1230 @@
 /**
- * Cookie Manager Pro v3.0
- * Complete cookie management with monitor, rules, protection, dashboard, containers, and more.
+ * Cookie Manager Pro v3.1 - Sidebar UI
+ * Depends on ../lib/cookies.js (cookie helpers) and i18n.js (t, setLanguage, applyTranslations).
  * 100% offline - zero external dependencies.
  */
 
 const DEFAULT_TRACKERS = [
-  'google-analytics.com', 'doubleclick.net', 'facebook.com', 'facebook.net',
-  'googlesyndication.com', 'googleadservices.com', 'amazon-adsystem.com',
-  'scorecardresearch.com', 'quantserve.com', 'criteo.com', 'outbrain.com',
-  'taboola.com', 'adnxs.com', 'rubiconproject.com', 'pubmatic.com',
-  'hotjar.com', 'mixpanel.com', 'segment.com', 'optimizely.com'
+  'google-analytics.com', 'doubleclick.net', 'facebook.net', 'googlesyndication.com',
+  'googleadservices.com', 'amazon-adsystem.com', 'scorecardresearch.com', 'quantserve.com',
+  'criteo.com', 'criteo.net', 'outbrain.com', 'taboola.com', 'adnxs.com', 'rubiconproject.com',
+  'pubmatic.com', 'hotjar.com', 'mixpanel.com', 'segment.io', 'optimizely.com', 'bing.com',
+  'clarity.ms', 'tiktok.com', 'adsrvr.org', 'casalemedia.com', 'openx.net', 'yieldmo.com'
 ];
 
-const PIE_COLORS = ['#4f8cff', '#00c853', '#ff5252', '#ffc107', '#29b6f6', '#ab47bc', '#ff7043', '#66bb6a'];
+const PAGE_SIZE = 100;
+const PBKDF2_ITERATIONS = 310000;
+const LEGACY_PBKDF2_ITERATIONS = 100000;
+const NEUTRAL_COLOR = '#8d95a8';
+
+const LS = {
+  trackers: 'cookieManagerTrackers', theme: 'cookieManagerTheme', history: 'cookieManagerHistory',
+  autoBackup: 'cookieManagerAutoBackup', lastBackup: 'cookieManagerLastBackup',
+  compact: 'cookieManagerCompact', legacyProfiles: 'cookieManagerProfiles'
+};
+
+const $ = (id) => document.getElementById(id);
+
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(text ?? '').replace(/[&<>"']/g, ch => map[ch]);
+}
+
+function readJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) { return fallback; }
+}
+
+function writeJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('[CookieManager] save failed', key, e); }
+}
+
+function icon(name) { return `<svg class="ic"><use href="#i-${name}"/></svg>`; }
+
+function normalizeDomain(domain) { return String(domain || '').replace(/^\./, '').toLowerCase(); }
+
+/** datetime-local value (local time) from unix seconds. */
+function toLocalInputValue(seconds) {
+  const date = new Date(seconds * 1000);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function formatDateStamp() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+function base64ToBytes(base64) {
+  return Uint8Array.from(atob(base64), ch => ch.charCodeAt(0));
+}
+
+function downloadFile(content, fileName, type = 'application/octet-stream') {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function isTypingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+  return el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(el.type);
+}
 
 class CookieManager {
   constructor() {
     this.allCookies = [];
+    this.cookieByKey = new Map();
     this.filteredCookies = [];
-    this.selectedCookieKeys = new Set();
-    this.currentDomainValue = '';
-    this.trackers = [];
-    this.profiles = [];
-    this.containers = [];
+    this.selectedKeys = new Set();
     this.protectedKeys = new Set();
-    this.pendingImportCookies = null;
-    this.editingCookie = null;
-    this.isCreatingCookie = false;
-    this.regexMode = false;
-    this.compactView = false;
-    this.sortField = 'name';
-    this.sortAsc = true;
+    this.stores = new Map();
     this.activeFilters = new Set();
-    this.monitorPaused = false;
-    this.monitorEntries = [];
-    this.monitorFilter = 'all';
-    this.monitorStats = { created: 0, deleted: 0, updated: 0 };
+    this.trackers = [];
+    this.rules = [];
+    this.profiles = [];
     this.history = [];
     this.undoStack = [];
-    this.rules = [];
+    this.monitorEntries = [];
+    this.monitorFilter = 'all';
+    this.monitorPaused = false;
+    this.site = null; // { host, site, storeId }
+    this.siteOnly = false;
+    this.regexMode = false;
+    this.searchRegex = null;
+    this.sortField = 'domain';
+    this.sortAsc = true;
+    this.renderLimit = PAGE_SIZE;
+    this.editingCookie = null;
+    this.pendingImport = null;
+    this.pendingEncrypted = null;
+    this.refreshTimer = null;
+    this.refreshPending = false;
+    this.monitorFrame = 0;
+    this.lastFocus = null;
+  }
 
-    this.initElements();
-    this.loadSettings();
-    this.initEventListeners();
-    this.loadTheme();
-    this.loadProfiles();
-    this.loadProtected();
-    this.loadRules();
-    this.loadHistory();
-    this.loadContainers();
-    this.refreshCookieList();
-    this.loadStats();
-    this.getCurrentTab();
-    this.initAutoBackup();
-    this.initMonitor();
+  async init() {
+    this.applyTheme(localStorage.getItem(LS.theme) || 'system');
+    applyTranslations();
     this.populateLanguageSelect();
+    this.initTabIndicator();
+    this.bindEvents();
+    this.loadTrackers();
+    this.setCompact(localStorage.getItem(LS.compact) === '1');
+    this.renderSkeleton();
+
+    await Promise.all([this.loadContainers(), this.loadProtected(), this.loadRules(), this.loadProfiles()]);
+    this.loadHistory();
+    this.initAutoBackup();
+    await this.updateCurrentSite();
+    await this.refreshCookieList();
+    this.initMonitor();
   }
 
-  // ============ INIT ============
-  initElements() {
-    this.themeToggle = document.getElementById('themeToggle');
-    this.settingsBtn = document.getElementById('settingsBtn');
-    this.settingsModal = document.getElementById('settingsModal');
-    this.closeSettings = document.getElementById('closeSettings');
-    this.languageSelect = document.getElementById('languageSelect');
-    this.trackerList = document.getElementById('trackerList');
-    this.tabs = document.querySelectorAll('.tab');
-    this.tabContents = document.querySelectorAll('.tab-content');
-    this.message = document.getElementById('message');
-    // Cookies tab
-    this.cookieSearch = document.getElementById('cookieSearch');
-    this.regexToggle = document.getElementById('regexToggle');
-    this.domainFilter = document.getElementById('domainFilter');
-    this.containerFilter = document.getElementById('containerFilter');
-    this.sortBy = document.getElementById('sortBy');
-    this.sortDirection = document.getElementById('sortDirection');
-    this.compactViewBtn = document.getElementById('compactViewBtn');
-    this.detailedViewBtn = document.getElementById('detailedViewBtn');
-    this.selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    this.cookieCountDisplay = document.getElementById('cookieCountDisplay');
-    this.addCookieBtn = document.getElementById('addCookieBtn');
-    this.deleteSelected = document.getElementById('deleteSelected');
-    this.exportSelectedBtn = document.getElementById('exportSelectedBtn');
-    this.deleteAllVisible = document.getElementById('deleteAllVisible');
-    this.cookieList = document.getElementById('cookieList');
-    this.refreshCookiesBtn = document.getElementById('refreshCookies');
-    this.cleanTrackersBtn = document.getElementById('cleanTrackersBtn');
-    this.cleanExpiredBtn = document.getElementById('cleanExpiredBtn');
-    // Cookie modal
-    this.cookieEditModal = document.getElementById('cookieEditModal');
-    this.cookieModalTitle = document.getElementById('cookieModalTitle');
-    this.closeCookieEdit = document.getElementById('closeCookieEdit');
-    this.editCookieName = document.getElementById('editCookieName');
-    this.editCookieValue = document.getElementById('editCookieValue');
-    this.editCookieDomain = document.getElementById('editCookieDomain');
-    this.editCookiePath = document.getElementById('editCookiePath');
-    this.editCookieExpiry = document.getElementById('editCookieExpiry');
-    this.editCookieSameSite = document.getElementById('editCookieSameSite');
-    this.editCookieSecure = document.getElementById('editCookieSecure');
-    this.editCookieHttpOnly = document.getElementById('editCookieHttpOnly');
-    this.copyEditValue = document.getElementById('copyEditValue');
-    this.cloneCookieBtn = document.getElementById('cloneCookieBtn');
-    this.deleteCookieBtn = document.getElementById('deleteCookieBtn');
-    this.saveCookieBtn = document.getElementById('saveCookieBtn');
-    // Export
-    this.encryptExport = document.getElementById('encryptExport');
-    this.exportPassword = document.getElementById('exportPassword');
-    this.filterCurrentSite = document.getElementById('filterCurrentSite');
-    this.filterCustomDomain = document.getElementById('filterCustomDomain');
-    this.currentDomain = document.getElementById('currentDomain');
-    this.customDomain = document.getElementById('customDomain');
-    this.excludeTrackers = document.getElementById('excludeTrackers');
-    this.totalCookies = document.getElementById('totalCookies');
-    this.selectedCookies = document.getElementById('selectedCookies');
-    this.exportBtn = document.getElementById('exportBtn');
-    this.copyClipboardBtn = document.getElementById('copyClipboardBtn');
-    // Import
-    this.encryptImport = document.getElementById('encryptImport');
-    this.importPassword = document.getElementById('importPassword');
-    this.overwriteExisting = document.getElementById('overwriteExisting');
-    this.previewBeforeImport = document.getElementById('previewBeforeImport');
-    this.dropzone = document.getElementById('dropzone');
-    this.fileInput = document.getElementById('fileInput');
-    this.previewPanel = document.getElementById('previewPanel');
-    this.previewCount = document.getElementById('previewCount');
-    this.previewDomains = document.getElementById('previewDomains');
-    this.previewList = document.getElementById('previewList');
-    this.cancelImport = document.getElementById('cancelImport');
-    this.confirmImport = document.getElementById('confirmImport');
-    this.loading = document.getElementById('loading');
-    this.importStats = document.getElementById('importStats');
-    this.importedCount = document.getElementById('importedCount');
-    this.failedCount = document.getElementById('failedCount');
-    // Profiles
-    this.profileName = document.getElementById('profileName');
-    this.saveProfileBtn = document.getElementById('saveProfileBtn');
-    this.profileList = document.getElementById('profileList');
-    this.compareProfile1 = document.getElementById('compareProfile1');
-    this.compareProfile2 = document.getElementById('compareProfile2');
-    this.compareBtn = document.getElementById('compareBtn');
-    this.diffResults = document.getElementById('diffResults');
-    this.autoBackupEnabled = document.getElementById('autoBackupEnabled');
-    this.autoBackupOptions = document.getElementById('autoBackupOptions');
-    this.backupInterval = document.getElementById('backupInterval');
-    this.lastBackupTime = document.getElementById('lastBackupTime');
-    // Monitor
-    this.monitorLiveBadge = document.getElementById('monitorLiveBadge');
-    this.monitorPauseBtn = document.getElementById('monitorPauseBtn');
-    this.monitorClearBtn = document.getElementById('monitorClearBtn');
-    this.monitorLog = document.getElementById('monitorLog');
-    this.monitorCreated = document.getElementById('monitorCreated');
-    this.monitorDeleted = document.getElementById('monitorDeleted');
-    this.monitorUpdated = document.getElementById('monitorUpdated');
-    // Rules
-    this.ruleMatchType = document.getElementById('ruleMatchType');
-    this.ruleMatchValue = document.getElementById('ruleMatchValue');
-    this.ruleAction = document.getElementById('ruleAction');
-    this.ruleDelay = document.getElementById('ruleDelay');
-    this.addRuleBtn = document.getElementById('addRuleBtn');
-    this.ruleList = document.getElementById('ruleList');
-    this.importRulesBtn = document.getElementById('importRulesBtn');
-    this.exportRulesBtn = document.getElementById('exportRulesBtn');
-    this.ruleFileInput = document.getElementById('ruleFileInput');
-    // History
-    this.historyList = document.getElementById('historyList');
-    this.undoBtn = document.getElementById('undoBtn');
-  }
+  // ============ EVENTS ============
+  bindEvents() {
+    const on = (id, event, handler) => $(id).addEventListener(event, handler);
 
-  initEventListeners() {
-    // Theme & Settings
-    this.themeToggle.addEventListener('click', () => this.toggleTheme());
-    this.settingsBtn.addEventListener('click', () => this.settingsModal.classList.add('show'));
-    this.closeSettings.addEventListener('click', () => this.settingsModal.classList.remove('show'));
-    this.settingsModal.addEventListener('click', (e) => { if (e.target === this.settingsModal) this.settingsModal.classList.remove('show'); });
-    this.languageSelect.addEventListener('change', (e) => { setLanguage(e.target.value); location.reload(); });
-    this.trackerList.addEventListener('change', () => this.saveTrackerList());
+    // Header & tabs
+    on('themeToggle', 'click', () => this.toggleTheme());
+    on('settingsBtn', 'click', () => this.openModal($('settingsModal')));
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => this.switchTab(tab.dataset.tab)));
+    document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', () => this.switchSubTab(seg.dataset.sub)));
 
-    // Tabs
-    this.tabs.forEach(tab => tab.addEventListener('click', () => this.switchTab(tab.dataset.tab)));
-
-    // Cookies tab
-    this.cookieSearch.addEventListener('input', () => this.filterCookieList());
-    this.regexToggle.addEventListener('click', () => { this.regexMode = !this.regexMode; this.regexToggle.classList.toggle('active', this.regexMode); this.filterCookieList(); });
-    this.domainFilter.addEventListener('change', () => this.filterCookieList());
-    this.containerFilter.addEventListener('change', () => this.filterCookieList());
-    this.sortBy.addEventListener('change', () => { this.sortField = this.sortBy.value; this.filterCookieList(); });
-    this.sortDirection.addEventListener('click', () => { this.sortAsc = !this.sortAsc; this.sortDirection.querySelector('svg').style.transform = this.sortAsc ? '' : 'rotate(180deg)'; this.filterCookieList(); });
-    this.compactViewBtn.addEventListener('click', () => { this.compactView = true; this.compactViewBtn.classList.add('active'); this.detailedViewBtn.classList.remove('active'); this.renderCookieList(); });
-    this.detailedViewBtn.addEventListener('click', () => { this.compactView = false; this.detailedViewBtn.classList.add('active'); this.compactViewBtn.classList.remove('active'); this.renderCookieList(); });
-    this.selectAllCheckbox.addEventListener('change', () => this.toggleSelectAll());
-    this.addCookieBtn.addEventListener('click', () => this.openCreateCookie());
-    this.deleteSelected.addEventListener('click', () => this.deleteSelectedCookies());
-    this.exportSelectedBtn.addEventListener('click', () => this.exportSelectedCookies());
-    this.deleteAllVisible.addEventListener('click', () => this.deleteAllVisibleCookies());
-    this.refreshCookiesBtn.addEventListener('click', () => this.refreshCookieList());
-    this.cleanTrackersBtn.addEventListener('click', () => this.cleanTrackers());
-    this.cleanExpiredBtn.addEventListener('click', () => this.cleanExpired());
-
-    // Badge filters
-    document.querySelectorAll('.badge-filter[data-filter]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const f = btn.dataset.filter;
-        if (this.activeFilters.has(f)) { this.activeFilters.delete(f); btn.classList.remove('active'); }
-        else { this.activeFilters.add(f); btn.classList.add('active'); }
-        this.filterCookieList();
+    // Modals
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal || e.target.closest('[data-close-modal]')) this.closeModal(modal);
       });
     });
 
-    // Cookie modal
-    this.closeCookieEdit.addEventListener('click', () => this.closeCookieEditModal());
-    this.cookieEditModal.addEventListener('click', (e) => { if (e.target === this.cookieEditModal) this.closeCookieEditModal(); });
-    this.deleteCookieBtn.addEventListener('click', () => this.deleteEditingCookie());
-    this.saveCookieBtn.addEventListener('click', () => this.saveEditingCookie());
-    this.cloneCookieBtn.addEventListener('click', () => this.cloneEditingCookie());
-    this.copyEditValue.addEventListener('click', () => this.copyToClipboard(this.editCookieValue.value));
+    // Settings
+    on('languageSelect', 'change', (e) => this.changeLanguage(e.target.value));
+    on('themeSelect', 'change', (e) => this.applyTheme(e.target.value, true));
+    on('trackerList', 'change', () => this.saveTrackers());
+    on('resetTrackers', 'click', () => { $('trackerList').value = DEFAULT_TRACKERS.join('\n'); this.saveTrackers(); });
 
-    // Export
-    this.encryptExport.addEventListener('change', () => { this.exportPassword.style.display = this.encryptExport.checked ? 'block' : 'none'; });
-    this.filterCurrentSite.addEventListener('change', () => { this.currentDomain.style.display = this.filterCurrentSite.checked ? 'block' : 'none'; if (this.filterCurrentSite.checked) { this.filterCustomDomain.checked = false; this.customDomain.style.display = 'none'; } this.updateSelectedCount(); });
-    this.filterCustomDomain.addEventListener('change', () => { this.customDomain.style.display = this.filterCustomDomain.checked ? 'block' : 'none'; if (this.filterCustomDomain.checked) { this.filterCurrentSite.checked = false; this.currentDomain.style.display = 'none'; } this.updateSelectedCount(); });
-    this.customDomain.addEventListener('input', () => this.updateSelectedCount());
-    this.excludeTrackers.addEventListener('change', () => this.updateSelectedCount());
-    this.exportBtn.addEventListener('click', () => this.exportCookies());
-    this.copyClipboardBtn.addEventListener('click', () => this.copyExportToClipboard());
+    // Site card
+    on('siteOnlyBtn', 'click', () => this.setSiteOnly(!this.siteOnly));
+    on('siteClearBtn', 'click', () => this.clearCurrentSite());
 
-    // Import
-    this.encryptImport.addEventListener('change', () => { this.importPassword.style.display = this.encryptImport.checked ? 'block' : 'none'; });
-    this.dropzone.addEventListener('click', () => this.fileInput.click());
-    this.fileInput.addEventListener('change', (e) => { if (e.target.files[0]) this.handleImportFile(e.target.files[0]); });
-    this.dropzone.addEventListener('dragover', (e) => { e.preventDefault(); this.dropzone.classList.add('dragover'); });
-    this.dropzone.addEventListener('dragleave', () => this.dropzone.classList.remove('dragover'));
-    this.dropzone.addEventListener('drop', (e) => { e.preventDefault(); this.dropzone.classList.remove('dragover'); if (e.dataTransfer.files[0]) this.handleImportFile(e.dataTransfer.files[0]); });
-    this.cancelImport.addEventListener('click', () => this.cancelPreview());
-    this.confirmImport.addEventListener('click', () => this.confirmImportCookies());
-
-    // Profiles
-    this.saveProfileBtn.addEventListener('click', () => this.saveProfile());
-    this.compareBtn.addEventListener('click', () => this.compareProfiles());
-    this.autoBackupEnabled.addEventListener('change', () => { this.autoBackupOptions.style.display = this.autoBackupEnabled.checked ? 'block' : 'none'; this.saveAutoBackupSettings(); });
-    this.backupInterval.addEventListener('change', () => this.saveAutoBackupSettings());
-
-    // Rules
-    this.addRuleBtn.addEventListener('click', () => this.addRule());
-    this.importRulesBtn.addEventListener('click', () => this.ruleFileInput.click());
-    this.ruleFileInput.addEventListener('change', (e) => { if (e.target.files[0]) this.importRulesFromFile(e.target.files[0]); });
-    this.exportRulesBtn.addEventListener('click', () => this.exportRulesToFile());
-
-    // History
-    this.undoBtn.addEventListener('click', () => this.undoLastAction());
-
-    // Monitor
-    this.monitorPauseBtn.addEventListener('click', () => this.toggleMonitorPause());
-    this.monitorClearBtn.addEventListener('click', () => this.clearMonitor());
-    document.querySelectorAll('[data-monitor-filter]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-monitor-filter]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.monitorFilter = btn.dataset.monitorFilter;
-        this.renderMonitorLog();
-      });
+    // Search, filters, sort
+    on('cookieSearch', 'input', () => this.filterCookieList());
+    on('regexToggle', 'click', () => {
+      this.regexMode = !this.regexMode;
+      $('regexToggle').setAttribute('aria-pressed', String(this.regexMode));
+      this.filterCookieList();
     });
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'E') { e.preventDefault(); this.exportCookies(); }
-      if (e.ctrlKey && e.shiftKey && e.key === 'I') { e.preventDefault(); this.switchTab('import'); }
-      if (e.key === 'Delete' && this.selectedCookieKeys.size > 0) { e.preventDefault(); this.deleteSelectedCookies(); }
-      if (e.ctrlKey && e.key === 'a' && document.activeElement === this.cookieList) { e.preventDefault(); this.selectAllVisible(); }
-      if (e.ctrlKey && e.key === 'z') { e.preventDefault(); this.undoLastAction(); }
-      if (e.key === 'Escape') { this.closeCookieEditModal(); this.settingsModal.classList.remove('show'); }
+    on('domainFilter', 'change', () => this.filterCookieList());
+    on('containerFilter', 'change', () => this.filterCookieList());
+    on('sortBy', 'change', (e) => { this.sortField = e.target.value; this.filterCookieList(); });
+    on('sortDirection', 'click', () => {
+      this.sortAsc = !this.sortAsc;
+      $('sortDirection').classList.toggle('desc', !this.sortAsc);
+      this.filterCookieList();
     });
+    on('compactToggle', 'click', () => this.setCompact(!this.compact));
+    on('refreshCookies', 'click', () => this.refreshCookieList({ spin: true }));
+    document.querySelectorAll('[data-filter]').forEach(chip => chip.addEventListener('click', () => {
+      const filter = chip.dataset.filter;
+      if (this.activeFilters.has(filter)) this.activeFilters.delete(filter); else this.activeFilters.add(filter);
+      chip.classList.toggle('active', this.activeFilters.has(filter));
+      this.filterCookieList();
+    }));
+
+    // List & bulk actions
+    on('cookieList', 'click', (e) => this.handleListClick(e));
+    on('selectAllCheckbox', 'change', (e) => (e.target.checked ? this.selectAllVisible() : this.clearSelection()));
+    on('deleteSelected', 'click', () => this.deleteCookies(this.getSelectedCookies(), { confirm: true }));
+    on('exportSelectedBtn', 'click', () => this.exportSelectedCookies());
+    on('deleteAllVisible', 'click', () => this.deleteCookies(this.filteredCookies, { confirm: true }));
+    on('addCookieBtn', 'click', () => this.openCreateCookie());
+    on('cleanTrackersBtn', 'click', () => this.cleanTrackers());
+    on('dashCleanTrackers', 'click', () => this.cleanTrackers());
+
+    // Editor
+    on('saveCookieBtn', 'click', () => this.saveEditingCookie());
+    on('deleteCookieBtn', 'click', () => this.deleteEditingCookie());
+    on('cloneCookieBtn', 'click', () => this.cloneEditingCookie());
+    on('copyEditValue', 'click', () => this.copyToClipboard($('editCookieValue').value));
+
+    this.bindBackupEvents(on);
+    this.bindRuleEvents(on);
+
+    // Monitor & history
+    on('monitorPauseBtn', 'click', () => this.toggleMonitorPause());
+    on('monitorClearBtn', 'click', () => this.clearMonitor());
+    on('monitorSearch', 'input', () => this.scheduleMonitorRender());
+    document.querySelectorAll('[data-monitor-filter]').forEach(chip => chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-monitor-filter]').forEach(c => c.classList.toggle('active', c === chip));
+      this.monitorFilter = chip.dataset.monitorFilter;
+      this.scheduleMonitorRender();
+    }));
+    on('undoBtn', 'click', () => this.undoLastAction());
+    on('clearHistoryBtn', 'click', () => this.clearHistory());
+
+    document.addEventListener('keydown', (e) => this.handleKeydown(e));
+    browser.tabs.onActivated.addListener(() => this.onActiveTabChanged());
+    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (tab.active && changeInfo.url) this.onActiveTabChanged();
+    });
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
+      if (changes.protectedCookies) this.setProtectedList(changes.protectedCookies.newValue || []);
+      if (changes.cookieRules) { this.rules = changes.cookieRules.newValue || []; this.renderRules(); }
+    });
+    browser.contextualIdentities?.onCreated?.addListener(() => this.loadContainers());
+    browser.contextualIdentities?.onRemoved?.addListener(() => this.loadContainers());
+    browser.contextualIdentities?.onUpdated?.addListener(() => this.loadContainers().then(() => this.renderCookieList()));
   }
 
-  populateLanguageSelect() {
-    this.languageSelect.innerHTML = '';
-    for (const [code, name] of Object.entries(languageNames)) {
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = name;
-      this.languageSelect.appendChild(opt);
-    }
-    this.languageSelect.value = currentLang;
+  handleKeydown(e) {
+    const openModal = [...document.querySelectorAll('.modal')].reverse().find(m => !m.hidden);
+    if (e.key === 'Escape' && openModal) { e.preventDefault(); this.closeModal(openModal); return; }
+    if (openModal) return;
+
+    const typing = isTypingTarget(e.target);
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); this.exportCookies(); return; }
+    if (typing) return;
+
+    if (e.key === '/') { e.preventDefault(); this.switchTab('cookies'); $('cookieSearch').focus(); }
+    else if (e.key === 'Delete' && this.selectedKeys.size) { e.preventDefault(); this.deleteCookies(this.getSelectedCookies(), { confirm: true }); }
+    else if (ctrl && e.key.toLowerCase() === 'a' && this.activeTab() === 'cookies') { e.preventDefault(); this.selectAllVisible(); }
+    else if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); this.undoLastAction(); }
   }
 
-  // ============ SETTINGS ============
-  loadSettings() {
-    const saved = localStorage.getItem('cookieManagerTrackers');
-    this.trackers = saved ? JSON.parse(saved) : DEFAULT_TRACKERS;
-    this.trackerList.value = this.trackers.join('\n');
-  }
-
-  saveTrackerList() {
-    this.trackers = this.trackerList.value.split('\n').map(d => d.trim()).filter(d => d);
-    localStorage.setItem('cookieManagerTrackers', JSON.stringify(this.trackers));
-  }
-
-  // ============ THEME ============
-  loadTheme() {
-    const theme = localStorage.getItem('cookieManagerTheme') || 'dark';
-    document.body.className = theme;
+  // ============ THEME & LANGUAGE ============
+  applyTheme(theme, persist = false) {
+    const value = ['dark', 'light', 'system'].includes(theme) ? theme : 'system';
+    document.documentElement.dataset.theme = value;
+    $('themeSelect').value = value;
+    if (persist) localStorage.setItem(LS.theme, value);
   }
 
   toggleTheme() {
-    const newTheme = document.body.classList.contains('dark') ? 'light' : 'dark';
-    document.body.className = newTheme;
-    localStorage.setItem('cookieManagerTheme', newTheme);
+    const current = document.documentElement.dataset.theme;
+    const prefersLight = matchMedia('(prefers-color-scheme: light)').matches;
+    const isLight = current === 'light' || (current === 'system' && prefersLight);
+    this.applyTheme(isLight ? 'dark' : 'light', true);
+  }
+
+  populateLanguageSelect() {
+    $('languageSelect').innerHTML = Object.entries(languageNames)
+      .map(([code, name]) => `<option value="${code}">${escapeHtml(name)}</option>`).join('');
+    $('languageSelect').value = currentLang;
+  }
+
+  changeLanguage(lang) {
+    setLanguage(lang);
+    applyTranslations();
+    this.buildStoreSelects();
+    this.buildDomainFilter();
+    this.renderAll();
+    requestAnimationFrame(() => this.moveTabIndicator());
+  }
+
+  renderAll() {
+    this.renderCookieList();
+    this.updateSiteCard();
+    this.renderRules();
+    this.renderProfiles();
+    this.renderHistory();
+    this.renderMonitorLog();
+    this.updateMonitorPauseLabel();
+    if (this.activeTab() === 'dashboard') this.refreshDashboard();
   }
 
   // ============ TABS ============
-  switchTab(tabName) {
-    this.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-    this.tabContents.forEach(c => c.classList.toggle('active', c.id === `${tabName}-tab`));
-    this.hideMessage();
-    if (tabName === 'dashboard') this.refreshDashboard();
-    if (tabName === 'monitor') this.loadMonitorLog();
+  initTabIndicator() {
+    const indicator = document.createElement('span');
+    indicator.className = 'tab-indicator';
+    document.querySelector('.tabs').prepend(indicator);
+    this.tabIndicator = indicator;
+    new ResizeObserver(() => this.moveTabIndicator()).observe(document.querySelector('.tabs'));
   }
 
-  // ============ MESSAGE ============
-  showMessage(text, type) {
-    this.message.textContent = text;
-    this.message.className = `message show ${type}`;
-    setTimeout(() => this.hideMessage(), 5000);
+  moveTabIndicator() {
+    const active = document.querySelector('.tab.active');
+    if (!active || !this.tabIndicator) return;
+    this.tabIndicator.style.width = `${active.offsetWidth}px`;
+    this.tabIndicator.style.transform = `translateX(${active.offsetLeft}px)`;
   }
 
-  hideMessage() { this.message.classList.remove('show'); }
+  activeTab() { return document.querySelector('.tab.active')?.dataset.tab; }
 
-  // ============ CURRENT TAB ============
-  async getCurrentTab() {
+  switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === name);
+      t.setAttribute('aria-selected', String(t.dataset.tab === name));
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === `${name}-tab`));
+    this.moveTabIndicator();
+    $('cookies-tab').parentElement.scrollTop = 0;
+    if (name === 'dashboard') this.refreshDashboard();
+    if (name === 'backup') this.updateExportCounts();
+  }
+
+  switchSubTab(name) {
+    document.querySelectorAll('.seg').forEach(s => s.classList.toggle('active', s.dataset.sub === name));
+    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === `sub-${name}`));
+  }
+
+  // ============ MODALS / TOASTS / CONFIRM ============
+  openModal(modal) {
+    this.lastFocus = document.activeElement;
+    modal.hidden = false;
+    const firstField = modal.querySelector('.modal-body input:not([type=checkbox]), .modal-body textarea, .modal-body select');
+    requestAnimationFrame(() => (firstField || modal.querySelector('button'))?.focus());
+  }
+
+  closeModal(modal) {
+    modal.hidden = true;
+    if (modal.id === 'cookieEditModal') this.editingCookie = null;
+    if (modal.id === 'confirmModal') this.resolveConfirm?.(false);
+    this.lastFocus?.focus?.();
+    if (this.refreshPending) this.scheduleRefresh();
+  }
+
+  isModalOpen() { return [...document.querySelectorAll('.modal')].some(m => !m.hidden); }
+
+  /** @returns {Promise<boolean>} */
+  confirmDialog(message, okLabel = t('confirm')) {
+    $('confirmText').textContent = message;
+    $('confirmOk').textContent = okLabel;
+    this.openModal($('confirmModal'));
+    $('confirmOk').focus();
+    return new Promise(resolve => {
+      const finish = (value) => {
+        this.resolveConfirm = null;
+        $('confirmOk').onclick = $('confirmCancel').onclick = null;
+        $('confirmModal').hidden = true;
+        resolve(value);
+      };
+      this.resolveConfirm = finish;
+      $('confirmOk').onclick = () => finish(true);
+      $('confirmCancel').onclick = () => finish(false);
+    });
+  }
+
+  /**
+   * @param {string} text
+   * @param {'success'|'error'|'warning'} type
+   * @param {{label: string, run: Function}} [action]
+   */
+  toast(text, type = 'success', action) {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    el.innerHTML = `<span class="toast-dot" aria-hidden="true"></span><span class="toast-text">${escapeHtml(text)}</span>`;
+    if (action) {
+      const btn = document.createElement('button');
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => { action.run(); dismiss(); });
+      el.appendChild(btn);
+    }
+    const region = $('toasts');
+    region.appendChild(el);
+    while (region.children.length > 3) region.firstElementChild.remove();
+    const dismiss = () => {
+      el.classList.add('leaving');
+      setTimeout(() => el.remove(), 250);
+    };
+    setTimeout(dismiss, action ? 6000 : 3500);
+  }
+
+  async copyToClipboard(text) {
     try {
-      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-      if (tabs[0]?.url) { this.currentDomainValue = new URL(tabs[0].url).hostname; this.currentDomain.value = this.currentDomainValue; }
-    } catch (e) {}
+      await navigator.clipboard.writeText(text);
+      this.toast(t('copiedToClipboard'));
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
   }
+
+  // ============ TRACKERS ============
+  loadTrackers() {
+    this.trackers = readJson(LS.trackers, DEFAULT_TRACKERS);
+    $('trackerList').value = this.trackers.join('\n');
+  }
+
+  saveTrackers() {
+    this.trackers = $('trackerList').value.split('\n').map(d => normalizeDomain(d.trim())).filter(Boolean);
+    writeJson(LS.trackers, this.trackers);
+    this.filterCookieList({ keepLimit: true });
+    this.toast(t('settingsSaved'));
+  }
+
+  isTracker(domain) { return this.trackers.some(tracker => domainMatches(domain, tracker)); }
 
   // ============ CONTAINERS ============
   async loadContainers() {
+    this.stores = new Map([[DEFAULT_STORE_ID, { name: t('defaultContainer'), color: NEUTRAL_COLOR }]]);
     try {
-      const result = await browser.runtime.sendMessage({ action: 'getContainers' });
-      this.containers = result.containers || [];
-      this.buildContainerFilter();
-    } catch (e) { this.containers = []; }
+      const containers = await browser.contextualIdentities.query({});
+      containers.forEach(c => this.stores.set(c.cookieStoreId, { name: c.name, color: c.colorCode || NEUTRAL_COLOR }));
+    } catch (e) { /* containers disabled */ }
+    this.buildStoreSelects();
   }
 
-  buildContainerFilter() {
-    this.containerFilter.innerHTML = `<option value="">${t('allContainers')}</option>`;
-    this.containers.forEach(c => {
-      this.containerFilter.innerHTML += `<option value="${c.cookieStoreId}">${this.escapeHtml(c.name)}</option>`;
-    });
+  /** Register stores seen in cookies but unknown (private browsing, removed containers). */
+  registerUnknownStores() {
+    let changed = false;
+    for (const cookie of this.allCookies) {
+      if (this.stores.has(cookie.storeId)) continue;
+      const isPrivate = cookie.storeId === PRIVATE_STORE_ID;
+      this.stores.set(cookie.storeId, { name: isPrivate ? t('privateContainer') : cookie.storeId, color: isPrivate ? '#a06cff' : NEUTRAL_COLOR });
+      changed = true;
+    }
+    if (changed) this.buildStoreSelects();
   }
 
-  getContainerForCookie(cookie) {
-    if (!cookie.storeId || cookie.storeId === 'firefox-default') return null;
-    return this.containers.find(c => c.cookieStoreId === cookie.storeId);
+  storeMeta(storeId) {
+    return this.stores.get(storeId || DEFAULT_STORE_ID) || { name: storeId, color: NEUTRAL_COLOR };
   }
 
-  // ============ PROTECTED COOKIES ============
+  buildStoreSelects() {
+    const storeOptions = [...this.stores].map(([id, s]) => `<option value="${escapeHtml(id)}">${escapeHtml(s.name)}</option>`).join('');
+    const allOption = `<option value="">${escapeHtml(t('allContainers'))}</option>`;
+    for (const id of ['containerFilter', 'exportContainer', 'ruleContainer']) {
+      const select = $(id);
+      const previous = select.value;
+      select.innerHTML = allOption + storeOptions;
+      select.value = this.stores.has(previous) ? previous : '';
+    }
+    const editSelect = $('editCookieStore');
+    const previousEdit = editSelect.value;
+    editSelect.innerHTML = storeOptions;
+    editSelect.value = this.stores.has(previousEdit) ? previousEdit : DEFAULT_STORE_ID;
+    // Hide container UI entirely when only the default store exists
+    const single = this.stores.size <= 1;
+    $('containerFilter').hidden = single;
+    $('containerFilter').parentElement.style.gridTemplateColumns = single ? '1fr' : '';
+  }
+
+  // ============ PROTECTION ============
   async loadProtected() {
     try {
-      const data = await browser.storage.local.get('protectedCookies');
-      const list = data.protectedCookies || [];
-      this.protectedKeys = new Set(list.map(p => p.key));
-    } catch (e) {}
+      const { protectedCookies = [] } = await browser.storage.local.get('protectedCookies');
+      this.setProtectedList(protectedCookies);
+    } catch (e) { this.protectedKeys = new Set(); }
   }
 
-  isProtected(cookie) {
-    return this.protectedKeys.has(`${cookie.name}|||${cookie.domain}`);
+  setProtectedList(list) {
+    this.protectedKeys = new Set(list.map(p => p.key));
+    this.renderCookieList();
   }
+
+  isProtected(cookie) { return this.protectedKeys.has(cookieKey(cookie)); }
 
   async toggleProtection(cookie) {
-    const key = `${cookie.name}|||${cookie.domain}`;
-    if (this.protectedKeys.has(key)) {
-      await browser.runtime.sendMessage({ action: 'unprotectCookie', name: cookie.name, domain: cookie.domain });
-      this.protectedKeys.delete(key);
-      this.showMessage(t('protectionDisabled'), 'success');
-      this.addHistoryEntry('unprotect', `${cookie.name} (${cookie.domain})`);
-    } else {
-      await browser.runtime.sendMessage({ action: 'protectCookie', cookie });
-      this.protectedKeys.add(key);
-      this.showMessage(t('protectionEnabled'), 'success');
-      this.addHistoryEntry('protect', `${cookie.name} (${cookie.domain})`);
+    const wasProtected = this.isProtected(cookie);
+    try {
+      await browser.runtime.sendMessage({ action: wasProtected ? 'unprotectCookie' : 'protectCookie', cookie: serializeCookie(cookie) });
+      if (wasProtected) this.protectedKeys.delete(cookieKey(cookie)); else this.protectedKeys.add(cookieKey(cookie));
+      this.toast(wasProtected ? t('protectionDisabled') : t('protectionEnabled'));
+      this.addHistoryEntry(wasProtected ? 'unprotect' : 'protect', `${cookie.name} (${cookie.domain})`);
+      this.renderCookieList();
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
     }
-    this.renderCookieList();
+  }
+
+  // ============ CURRENT SITE ============
+  async updateCurrentSite() {
+    this.site = null;
+    try {
+      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      const url = new URL(tab?.url || '');
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        this.site = { host: url.hostname, site: url.hostname.replace(/^www\./, ''), storeId: tab.cookieStoreId || DEFAULT_STORE_ID };
+      }
+    } catch (e) { /* about:, file:, etc. */ }
+    $('exportSiteName').textContent = this.site ? this.site.site : '';
+    if (!this.site && this.siteOnly) this.setSiteOnly(false);
+  }
+
+  async onActiveTabChanged() {
+    await this.updateCurrentSite();
+    this.updateSiteCard();
+    if (this.siteOnly) this.filterCookieList();
+    this.updateExportCounts();
+  }
+
+  /** Cookie is sent to the current site (same domain, parent domain or subdomain). */
+  appliesToSite(cookie) {
+    if (!this.site) return false;
+    return domainMatches(cookie.domain, this.site.site) || domainMatches(this.site.host, cookie.domain);
+  }
+
+  siteCookies() { return this.allCookies.filter(c => this.appliesToSite(c)); }
+
+  updateSiteCard() {
+    $('siteCard').hidden = !this.site;
+    if (!this.site) return;
+    $('siteHost').textContent = this.site.host;
+    $('siteCount').textContent = this.siteCookies().length;
+    $('siteOnlyBtn').textContent = this.siteOnly ? t('showAllSites') : t('showThisSite');
+  }
+
+  setSiteOnly(enabled) {
+    this.siteOnly = enabled && Boolean(this.site);
+    $('siteOnlyBtn').setAttribute('aria-pressed', String(this.siteOnly));
+    this.updateSiteCard();
+    this.filterCookieList();
+  }
+
+  async clearCurrentSite() {
+    if (!this.site) return;
+    await this.deleteCookies(this.siteCookies(), { confirm: true, label: this.site.site });
   }
 
   // ============ COOKIE LIST ============
-  async refreshCookieList() {
-    this.cookieList.innerHTML = '<div class="loading-inline">Loading...</div>';
+  renderSkeleton() {
+    $('cookieList').innerHTML = '<div class="skeleton"></div>'.repeat(5);
+  }
+
+  async refreshCookieList({ spin = false } = {}) {
+    const refreshBtn = $('refreshCookies');
+    if (spin) refreshBtn.classList.add('spin');
     try {
-      this.allCookies = await browser.cookies.getAll({});
+      this.allCookies = await getAllCookiesEverywhere();
+      this.cookieByKey = new Map(this.allCookies.map(c => [cookieKey(c), c]));
+      for (const key of this.selectedKeys) if (!this.cookieByKey.has(key)) this.selectedKeys.delete(key);
+      this.registerUnknownStores();
       this.buildDomainFilter();
-      this.filterCookieList();
-      this.loadStats();
+      this.updateSiteCard();
+      this.filterCookieList({ keepLimit: true, animate: spin });
+      this.updateExportCounts();
+      if (this.activeTab() === 'dashboard') this.refreshDashboard();
     } catch (e) {
-      this.cookieList.innerHTML = '<div class="empty-state">Error loading cookies</div>';
+      $('cookieList').innerHTML = this.emptyHtml('x', t('errorLoading'), e.message);
+    } finally {
+      setTimeout(() => refreshBtn.classList.remove('spin'), 400);
     }
+  }
+
+  /** Debounced silent refresh used for live updates. Deferred while a dialog is open. */
+  scheduleRefresh() {
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      if (this.isModalOpen()) { this.refreshPending = true; return; }
+      this.refreshPending = false;
+      this.refreshCookieList();
+    }, 600);
   }
 
   buildDomainFilter() {
-    const domains = [...new Set(this.allCookies.map(c => c.domain.replace(/^\./, '')))].sort();
-    this.domainFilter.innerHTML = `<option value="">${t('allDomains')} (${domains.length})</option>`;
-    domains.forEach(d => {
-      const count = this.allCookies.filter(c => c.domain.includes(d)).length;
-      this.domainFilter.innerHTML += `<option value="${d}">${d} (${count})</option>`;
-    });
+    const counts = new Map();
+    for (const c of this.allCookies) {
+      const domain = normalizeDomain(c.domain);
+      counts.set(domain, (counts.get(domain) || 0) + 1);
+    }
+    const select = $('domainFilter');
+    const previous = select.value;
+    const options = [...counts].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([domain, count]) => `<option value="${escapeHtml(domain)}">${escapeHtml(domain)} (${count})</option>`);
+    select.innerHTML = `<option value="">${escapeHtml(t('allDomains'))} (${counts.size})</option>${options.join('')}`;
+    select.value = counts.has(previous) ? previous : '';
   }
 
-  filterCookieList() {
-    const search = this.cookieSearch.value;
-    const domain = this.domainFilter.value;
-    const container = this.containerFilter.value;
+  /** Builds this.searchRegex; returns false when regex is invalid. */
+  compileSearch() {
+    const query = $('cookieSearch').value.trim();
+    this.searchRegex = null;
+    if (!query) return true;
+    try {
+      const lowered = query.toLowerCase();
+      this.searchRegex = this.regexMode ? new RegExp(query, 'i') : { test: (text) => String(text).toLowerCase().includes(lowered) };
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
-    this.filteredCookies = this.allCookies.filter(c => {
-      // Search
-      if (search) {
-        if (this.regexMode) {
-          try {
-            const re = new RegExp(search, 'i');
-            if (!re.test(c.name) && !re.test(c.domain) && !re.test(c.value)) return false;
-          } catch (e) { return false; }
-        } else {
-          const s = search.toLowerCase();
-          if (!c.name.toLowerCase().includes(s) && !c.domain.toLowerCase().includes(s) && !c.value.toLowerCase().includes(s)) return false;
-        }
-      }
-      // Domain
-      if (domain && !c.domain.includes(domain)) return false;
-      // Container
-      if (container && c.storeId !== container) return false;
-      // Badge filters
-      if (this.activeFilters.has('secure') && !c.secure) return false;
-      if (this.activeFilters.has('httpOnly') && !c.httpOnly) return false;
-      if (this.activeFilters.has('session') && !c.session) return false;
-      if (this.activeFilters.has('tracker') && !this.isTracker(c.domain)) return false;
-      if (this.activeFilters.has('protected') && !this.isProtected(c)) return false;
+  filterCookieList({ keepLimit = false, animate = true } = {}) {
+    const validSearch = this.compileSearch();
+    $('cookieSearch').closest('.search-box').classList.toggle('invalid', !validSearch);
+    const domain = $('domainFilter').value;
+    const store = $('containerFilter').value;
+    const filters = this.activeFilters;
+    const re = this.searchRegex;
+
+    this.filteredCookies = !validSearch ? [] : this.allCookies.filter(c => {
+      if (re && !re.test(c.name) && !re.test(c.domain) && !re.test(c.value)) return false;
+      if (this.siteOnly && !this.appliesToSite(c)) return false;
+      if (domain && normalizeDomain(c.domain) !== domain) return false;
+      if (store && c.storeId !== store) return false;
+      if (filters.has('secure') && !c.secure) return false;
+      if (filters.has('httpOnly') && !c.httpOnly) return false;
+      if (filters.has('session') && !c.session) return false;
+      if (filters.has('tracker') && !this.isTracker(c.domain)) return false;
+      if (filters.has('protected') && !this.isProtected(c)) return false;
       return true;
     });
 
-    // Sort
-    this.filteredCookies.sort((a, b) => {
-      let cmp = 0;
-      if (this.sortField === 'name') cmp = a.name.localeCompare(b.name);
-      else if (this.sortField === 'domain') cmp = a.domain.localeCompare(b.domain);
-      else if (this.sortField === 'expiry') cmp = (a.expirationDate || Infinity) - (b.expirationDate || Infinity);
-      else if (this.sortField === 'size') cmp = (a.value?.length || 0) - (b.value?.length || 0);
-      return this.sortAsc ? cmp : -cmp;
-    });
+    const direction = this.sortAsc ? 1 : -1;
+    const compareText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+    const sorters = {
+      name: (a, b) => compareText(a.name, b.name),
+      domain: (a, b) => compareText(normalizeDomain(a.domain), normalizeDomain(b.domain)) || compareText(a.name, b.name),
+      expiry: (a, b) => (a.expirationDate || Infinity) - (b.expirationDate || Infinity),
+      size: (a, b) => (a.name.length + a.value.length) - (b.name.length + b.value.length)
+    };
+    this.filteredCookies.sort((a, b) => direction * sorters[this.sortField](a, b));
 
-    this.renderCookieList();
+    if (!keepLimit) this.renderLimit = PAGE_SIZE;
+    this.renderCookieList({ animate });
   }
 
-  renderCookieList() {
+  hasActiveFilters() {
+    return Boolean($('cookieSearch').value || $('domainFilter').value || $('containerFilter').value || this.activeFilters.size || this.siteOnly);
+  }
+
+  resetFilters() {
+    $('cookieSearch').value = '';
+    $('domainFilter').value = '';
+    $('containerFilter').value = '';
+    this.activeFilters.clear();
+    document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
+    this.setSiteOnly(false);
+  }
+
+  emptyHtml(iconName, title, text = '', withReset = false) {
+    return `<div class="empty">${icon(iconName)}<b>${escapeHtml(title)}</b>${text ? `<span>${escapeHtml(text)}</span>` : ''}
+      ${withReset ? `<button class="btn btn-soft btn-sm reset-filters">${escapeHtml(t('resetFilters'))}</button>` : ''}</div>`;
+  }
+
+  /** Human readable expiry ("in 3 days", "Session"). */
+  formatExpiry(cookie) {
+    if (cookie.session || !cookie.expirationDate) return t('sessionLabel');
+    const diffSec = cookie.expirationDate - Date.now() / 1000;
+    const units = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]];
+    const [unit, size] = units.find(([, s]) => Math.abs(diffSec) >= s) || ['minute', 60];
+    try {
+      return new Intl.RelativeTimeFormat(currentLang, { numeric: 'auto' }).format(Math.round(diffSec / size), unit);
+    } catch (e) {
+      return new Date(cookie.expirationDate * 1000).toLocaleString();
+    }
+  }
+
+  cookieRowHtml(cookie, index, animate) {
+    const key = cookieKey(cookie);
+    const store = this.storeMeta(cookie.storeId);
+    const isDefaultStore = (cookie.storeId || DEFAULT_STORE_ID) === DEFAULT_STORE_ID;
+    const isProt = this.isProtected(cookie);
+    const selected = this.selectedKeys.has(key);
+    const colorStyle = `--c:${escapeHtml(store.color)}`;
+
+    const tags = [];
+    if (!isDefaultStore) tags.push(`<span class="tag store" style="${colorStyle}">${escapeHtml(store.name)}</span>`);
+    if (cookie.secure) tags.push(`<span class="tag secure" title="${escapeHtml(t('hintSecure'))}">${escapeHtml(t('filterSecure'))}</span>`);
+    if (cookie.httpOnly) tags.push(`<span class="tag httponly" title="${escapeHtml(t('hintHttpOnly'))}">HttpOnly</span>`);
+    if (cookie.session) tags.push(`<span class="tag session" title="${escapeHtml(t('hintSession'))}">${escapeHtml(t('filterSession'))}</span>`);
+    if (this.isTracker(cookie.domain)) tags.push(`<span class="tag tracker" title="${escapeHtml(t('hintTracker'))}">${escapeHtml(t('filterTracker'))}</span>`);
+    if (cookie.partitionKey?.topLevelSite) tags.push(`<span class="tag partition" title="${escapeHtml(t('hintPartition'))}">${escapeHtml(t('partitioned'))}: ${escapeHtml(cookie.partitionKey.topLevelSite.replace(/^https?:\/\//, ''))}</span>`);
+
+    return `<div class="cookie-row${selected ? ' selected' : ''}" data-key="${escapeHtml(key)}" role="option" aria-selected="${selected}"
+        style="${animate ? `--i:${Math.min(index, 15)}` : 'animation:none'}">
+      ${isDefaultStore ? '' : `<span class="store-bar" style="${colorStyle}"></span>`}
+      <input type="checkbox" class="row-check" ${selected ? 'checked' : ''} aria-label="${escapeHtml(t('selectAll'))}">
+      <div class="row-main">
+        <div class="row-title"><span class="row-name">${escapeHtml(cookie.name || t('noName'))}</span>${isProt ? icon('lock') : ''}</div>
+        <div class="row-sub"><span>${escapeHtml(normalizeDomain(cookie.domain))}<span class="path">${escapeHtml(cookie.path)}</span></span><span>&middot; ${escapeHtml(this.formatExpiry(cookie))}</span></div>
+        <div class="row-value">${escapeHtml((cookie.value || '').slice(0, 120)) || '&nbsp;'}</div>
+        ${tags.length ? `<div class="row-tags">${tags.join('')}</div>` : ''}
+      </div>
+      <div class="row-actions">
+        <button class="icon-btn act-copy" title="${escapeHtml(t('copyCookieValue'))}">${icon('copy')}</button>
+        <button class="icon-btn act-protect${isProt ? ' on' : ''}" title="${escapeHtml(isProt ? t('unprotectCookie') : t('protectCookie'))}">${icon('lock')}</button>
+        <button class="icon-btn act-delete del" title="${escapeHtml(t('delete'))}">${icon('trash')}</button>
+      </div>
+    </div>`;
+  }
+
+  renderCookieList({ animate = false } = {}) {
+    const list = $('cookieList');
     const cookies = this.filteredCookies;
-    if (cookies.length === 0) {
-      this.cookieList.innerHTML = `<div class="empty-state">${t('noCookiesFound')}</div>`;
-      this.cookieCountDisplay.textContent = `0 ${t('cookies')}`;
-      this.updateSelectionUI();
-      return;
+    $('cookieCountDisplay').textContent = t('countCookies', { n: cookies.length });
+
+    if (!cookies.length) {
+      list.innerHTML = this.allCookies.length
+        ? this.emptyHtml('search', t('noCookiesFound'), t('noMatchHint'), this.hasActiveFilters())
+        : this.emptyHtml('cookie', t('noCookiesYet'), t('noCookiesYetHint'));
+    } else {
+      const visible = cookies.slice(0, this.renderLimit);
+      let html = visible.map((c, i) => this.cookieRowHtml(c, i, animate)).join('');
+      if (cookies.length > visible.length) {
+        html += `<button class="btn btn-soft btn-sm load-more">${escapeHtml(t('loadMore', { n: Math.min(PAGE_SIZE, cookies.length - visible.length), total: cookies.length - visible.length }))}</button>`;
+      }
+      list.innerHTML = html;
     }
-    this.cookieCountDisplay.textContent = `${cookies.length} ${t('cookies')}`;
-
-    // Render up to 200 cookies (virtual scroll for perf)
-    const max = Math.min(cookies.length, 200);
-    let html = '';
-    for (let i = 0; i < max; i++) {
-      const c = cookies[i];
-      const key = `${c.name}|||${c.domain}`;
-      const isSelected = this.selectedCookieKeys.has(key);
-      const isProt = this.isProtected(c);
-      const isTrack = this.isTracker(c.domain);
-      const container = this.getContainerForCookie(c);
-      const compact = this.compactView ? ' compact' : '';
-
-      const badges = [];
-      if (c.secure) badges.push('<span class="badge secure">S</span>');
-      if (c.httpOnly) badges.push('<span class="badge httponly">H</span>');
-      if (c.session) badges.push('<span class="badge session-badge">Sess</span>');
-      if (isTrack) badges.push('<span class="badge tracker">T</span>');
-      if (isProt) badges.push('<span class="badge protected-badge">P</span>');
-
-      const containerDot = container ? `<span class="container-dot" style="background:${container.color}" title="${this.escapeHtml(container.name)}"></span>` : '';
-      const valuePreview = !this.compactView ? `<div class="cookie-value-preview">${this.escapeHtml((c.value || '').substring(0, 60))}</div>` : '';
-
-      html += `<div class="cookie-item${compact}${isSelected ? ' selected' : ''}${isProt ? ' protected' : ''}" data-index="${i}" data-key="${this.escapeHtml(key)}" role="option" tabindex="-1">
-        <input type="checkbox" class="cookie-checkbox" ${isSelected ? 'checked' : ''} aria-label="Select ${this.escapeHtml(c.name)}">
-        ${containerDot}
-        <div class="cookie-info">
-          <div class="cookie-name">${this.escapeHtml(c.name)}</div>
-          <div class="cookie-domain">${c.domain}</div>
-          ${valuePreview}
-        </div>
-        <div class="cookie-badges">${badges.join('')}</div>
-        <div class="cookie-item-actions">
-          <button class="icon-btn tiny copy-btn" title="${t('copyCookieValue')}" aria-label="Copy value">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </button>
-          <button class="icon-btn tiny protect-btn ${isProt ? 'active' : ''}" title="${isProt ? t('unprotectCookie') : t('protectCookie')}" aria-label="Toggle protection">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </button>
-        </div>
-      </div>`;
-    }
-
-    if (cookies.length > max) {
-      html += `<div class="empty-state">... and ${cookies.length - max} more (use search to narrow down)</div>`;
-    }
-
-    this.cookieList.innerHTML = html;
-
-    // Event delegation
-    this.cookieList.addEventListener('click', (e) => {
-      const item = e.target.closest('.cookie-item');
-      if (!item) return;
-      const idx = parseInt(item.dataset.index);
-      const cookie = this.filteredCookies[idx];
-      if (!cookie) return;
-
-      if (e.target.closest('.cookie-checkbox')) {
-        this.toggleCookieSelection(cookie);
-        return;
-      }
-      if (e.target.closest('.copy-btn')) {
-        this.copyToClipboard(cookie.value || '');
-        return;
-      }
-      if (e.target.closest('.protect-btn')) {
-        this.toggleProtection(cookie);
-        return;
-      }
-      this.openCookieEditor(cookie);
-    }, { once: true });
-
-    // Re-attach delegation (needed because innerHTML replaces content)
-    this.cookieList.onclick = (e) => {
-      const item = e.target.closest('.cookie-item');
-      if (!item) return;
-      const idx = parseInt(item.dataset.index);
-      const cookie = this.filteredCookies[idx];
-      if (!cookie) return;
-
-      if (e.target.closest('.cookie-checkbox')) {
-        this.toggleCookieSelection(cookie);
-        return;
-      }
-      if (e.target.closest('.copy-btn')) {
-        this.copyToClipboard(cookie.value || '');
-        return;
-      }
-      if (e.target.closest('.protect-btn')) {
-        this.toggleProtection(cookie);
-        return;
-      }
-      this.openCookieEditor(cookie);
-    };
-
     this.updateSelectionUI();
   }
 
-  // ============ SELECTION ============
-  toggleCookieSelection(cookie) {
-    const key = `${cookie.name}|||${cookie.domain}`;
-    if (this.selectedCookieKeys.has(key)) this.selectedCookieKeys.delete(key);
-    else this.selectedCookieKeys.add(key);
-    this.renderCookieList();
+  handleListClick(e) {
+    if (e.target.closest('.load-more')) { this.renderLimit += PAGE_SIZE; this.renderCookieList(); return; }
+    if (e.target.closest('.reset-filters')) { this.resetFilters(); return; }
+    const row = e.target.closest('.cookie-row');
+    const cookie = row && this.cookieByKey.get(row.dataset.key);
+    if (!cookie) return;
+
+    if (e.target.closest('.row-check')) this.toggleSelection(row.dataset.key, row);
+    else if (e.target.closest('.act-copy')) this.copyToClipboard(cookie.value || '');
+    else if (e.target.closest('.act-protect')) this.toggleProtection(cookie);
+    else if (e.target.closest('.act-delete')) this.deleteCookies([cookie], { animateRow: row });
+    else this.openCookieEditor(cookie);
   }
 
-  toggleSelectAll() {
-    if (this.selectAllCheckbox.checked) this.selectAllVisible();
-    else { this.selectedCookieKeys.clear(); this.renderCookieList(); }
+  // ============ SELECTION ============
+  toggleSelection(key, row) {
+    if (this.selectedKeys.has(key)) this.selectedKeys.delete(key); else this.selectedKeys.add(key);
+    const selected = this.selectedKeys.has(key);
+    row.classList.toggle('selected', selected);
+    row.setAttribute('aria-selected', String(selected));
+    row.querySelector('.row-check').checked = selected;
+    this.updateSelectionUI();
   }
 
   selectAllVisible() {
-    this.filteredCookies.forEach(c => this.selectedCookieKeys.add(`${c.name}|||${c.domain}`));
-    this.selectAllCheckbox.checked = true;
+    this.filteredCookies.forEach(c => this.selectedKeys.add(cookieKey(c)));
     this.renderCookieList();
   }
 
+  clearSelection() {
+    this.selectedKeys.clear();
+    this.renderCookieList();
+  }
+
+  getSelectedCookies() {
+    return [...this.selectedKeys].map(key => this.cookieByKey.get(key)).filter(Boolean);
+  }
+
   updateSelectionUI() {
-    const hasSelection = this.selectedCookieKeys.size > 0;
-    this.deleteSelected.style.display = hasSelection ? 'inline-block' : 'none';
-    this.exportSelectedBtn.style.display = hasSelection ? 'inline-block' : 'none';
+    const count = this.selectedKeys.size;
+    $('selectionBar').hidden = count === 0;
+    $('selectionCount').textContent = t('nSelected', { n: count });
+    const visibleSelected = this.filteredCookies.filter(c => this.selectedKeys.has(cookieKey(c))).length;
+    const selectAll = $('selectAllCheckbox');
+    selectAll.checked = visibleSelected > 0 && visibleSelected === this.filteredCookies.length;
+    selectAll.indeterminate = visibleSelected > 0 && !selectAll.checked;
+  }
+
+  setCompact(compact) {
+    this.compact = compact;
+    $('cookieList').classList.toggle('compact', compact);
+    $('compactToggle').setAttribute('aria-pressed', String(compact));
+    localStorage.setItem(LS.compact, compact ? '1' : '0');
+  }
+
+  // ============ DELETE / UNDO / CLEAN ============
+  /**
+   * Delete cookies (protected ones are skipped) with an Undo toast.
+   * @param {object[]} cookies
+   * @param {{confirm?: boolean, label?: string, animateRow?: HTMLElement}} options
+   */
+  async deleteCookies(cookies, { confirm = false, label = '', animateRow = null } = {}) {
+    if (!cookies.length) { this.toast(t('nothingToDelete'), 'warning'); return; }
+    const deletable = cookies.filter(c => !this.isProtected(c));
+    const skipped = cookies.length - deletable.length;
+    if (!deletable.length) { this.toast(t('allProtected'), 'warning'); return; }
+
+    if (confirm || deletable.length > 1) {
+      const message = label ? t('confirmDeleteSite', { n: deletable.length, site: label }) : t('confirmDeleteCookies', { n: deletable.length });
+      if (!(await this.confirmDialog(message, t('delete')))) return;
+    }
+
+    if (animateRow) {
+      animateRow.classList.add('removing');
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    const results = await Promise.allSettled(deletable.map(removeCookie));
+    const deleted = deletable.filter((_, i) => results[i].status === 'fulfilled');
+    deleted.forEach(c => this.selectedKeys.delete(cookieKey(c)));
+
+    if (deleted.length) {
+      this.undoStack.push(deleted.map(serializeCookie));
+      if (this.undoStack.length > 20) this.undoStack.shift();
+      this.addHistoryEntry('delete', deleted.length === 1 ? `${deleted[0].name} (${deleted[0].domain})` : t('countCookies', { n: deleted.length }));
+    }
+    let message = t('cookiesDeleted', { n: deleted.length });
+    if (skipped) message += ` · ${t('protectedSkipped', { n: skipped })}`;
+    const failed = deletable.length - deleted.length;
+    if (failed) message += ` · ${t('failedCount', { n: failed })}`;
+    this.toast(message, failed ? 'warning' : 'success', deleted.length ? { label: t('undoAction'), run: () => this.undoLastAction() } : undefined);
+    await this.refreshCookieList();
+  }
+
+  async undoLastAction() {
+    const cookies = this.undoStack.pop();
+    if (!cookies) { this.toast(t('noUndoAvailable'), 'warning'); return; }
+    try {
+      const result = await browser.runtime.sendMessage({ action: 'importCookies', cookies, options: { overwrite: true } });
+      this.toast(t('undoRestored', { n: result.imported }));
+      this.addHistoryEntry('import', t('undoRestored', { n: result.imported }));
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
+    await this.refreshCookieList();
+  }
+
+  async cleanTrackers() {
+    const trackers = this.allCookies.filter(c => this.isTracker(c.domain));
+    if (!trackers.length) { this.toast(t('noTrackers')); return; }
+    await this.deleteCookies(trackers, { confirm: true });
+    this.addHistoryEntry('clean', t('trackersCleaned'));
   }
 
   // ============ COOKIE EDITOR ============
+  fillEditor(cookie) {
+    $('editCookieName').value = cookie.name || '';
+    $('editCookieValue').value = cookie.value || '';
+    $('editCookieDomain').value = cookie.domain || '';
+    $('editCookiePath').value = cookie.path || '/';
+    $('editCookieStore').value = this.stores.has(cookie.storeId) ? cookie.storeId : DEFAULT_STORE_ID;
+    $('editCookieExpiry').value = cookie.expirationDate ? toLocalInputValue(cookie.expirationDate) : '';
+    $('editCookieSameSite').value = ['strict', 'lax', 'no_restriction'].includes(cookie.sameSite) ? cookie.sameSite : 'no_restriction';
+    $('editCookieSecure').checked = Boolean(cookie.secure);
+    $('editCookieHttpOnly').checked = Boolean(cookie.httpOnly);
+  }
+
+  setEditorMode(isCreate) {
+    $('cookieModalTitle').textContent = isCreate ? t('createCookie') : t('editCookie');
+    $('saveCookieBtn').textContent = isCreate ? t('create') : t('save');
+    $('deleteCookieBtn').hidden = isCreate;
+    $('cloneCookieBtn').hidden = isCreate;
+  }
+
   openCookieEditor(cookie) {
     this.editingCookie = cookie;
-    this.isCreatingCookie = false;
-    this.cookieModalTitle.textContent = t('editCookie');
-    this.editCookieName.value = cookie.name;
-    this.editCookieName.readOnly = true;
-    this.editCookieValue.value = cookie.value;
-    this.editCookieDomain.value = cookie.domain;
-    this.editCookieDomain.readOnly = true;
-    this.editCookiePath.value = cookie.path;
-    this.editCookieSameSite.value = cookie.sameSite || 'no_restriction';
-    if (cookie.expirationDate) {
-      this.editCookieExpiry.value = new Date(cookie.expirationDate * 1000).toISOString().slice(0, 16);
-    } else { this.editCookieExpiry.value = ''; }
-    this.editCookieSecure.checked = cookie.secure;
-    this.editCookieHttpOnly.checked = cookie.httpOnly;
-    this.cloneCookieBtn.style.display = 'inline-flex';
-    this.deleteCookieBtn.style.display = 'inline-flex';
-    this.saveCookieBtn.textContent = t('save');
-    this.cookieEditModal.classList.add('show');
+    this.fillEditor(cookie);
+    this.setEditorMode(false);
+    this.openModal($('cookieEditModal'));
   }
 
   openCreateCookie() {
     this.editingCookie = null;
-    this.isCreatingCookie = true;
-    this.cookieModalTitle.textContent = t('createCookie');
-    this.editCookieName.value = '';
-    this.editCookieName.readOnly = false;
-    this.editCookieValue.value = '';
-    this.editCookieDomain.value = this.currentDomainValue || '';
-    this.editCookieDomain.readOnly = false;
-    this.editCookiePath.value = '/';
-    this.editCookieSameSite.value = 'lax';
-    this.editCookieExpiry.value = '';
-    this.editCookieSecure.checked = true;
-    this.editCookieHttpOnly.checked = false;
-    this.cloneCookieBtn.style.display = 'none';
-    this.deleteCookieBtn.style.display = 'none';
-    this.saveCookieBtn.textContent = t('create');
-    this.cookieEditModal.classList.add('show');
-  }
-
-  closeCookieEditModal() {
-    this.cookieEditModal.classList.remove('show');
-    this.editingCookie = null;
-    this.isCreatingCookie = false;
-  }
-
-  async deleteEditingCookie() {
-    if (!this.editingCookie) return;
-    try {
-      const c = this.editingCookie;
-      // Save for undo
-      this.undoStack.push({ type: 'delete', cookie: { ...c } });
-      const url = `http${c.secure ? 's' : ''}://${c.domain.replace(/^\./, '')}${c.path}`;
-      await browser.cookies.remove({ url, name: c.name });
-      this.showMessage(t('cookieDeleted'), 'success');
-      this.addHistoryEntry('delete', `${c.name} (${c.domain})`);
-      this.closeCookieEditModal();
-      this.refreshCookieList();
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
-  }
-
-  async saveEditingCookie() {
-    try {
-      const domain = this.editCookieDomain.value.replace(/^\./, '');
-      const secure = this.editCookieSecure.checked;
-      const url = `http${secure ? 's' : ''}://${domain}${this.editCookiePath.value || '/'}`;
-
-      let sameSite = this.editCookieSameSite.value;
-      if (sameSite === 'no_restriction' && !secure) sameSite = 'lax';
-
-      const cookieData = {
-        url,
-        name: this.editCookieName.value,
-        value: this.editCookieValue.value,
-        path: this.editCookiePath.value || '/',
-        secure,
-        httpOnly: this.editCookieHttpOnly.checked,
-        sameSite
-      };
-
-      if (this.editCookieExpiry.value) {
-        cookieData.expirationDate = new Date(this.editCookieExpiry.value).getTime() / 1000;
-      }
-
-      if (this.editCookieDomain.value.startsWith('.')) {
-        cookieData.domain = this.editCookieDomain.value;
-      }
-
-      await browser.cookies.set(cookieData);
-
-      if (this.isCreatingCookie) {
-        this.showMessage(t('cookieCreated'), 'success');
-        this.addHistoryEntry('edit', `Created: ${cookieData.name}`);
-      } else {
-        this.showMessage(t('cookieSaved'), 'success');
-        this.addHistoryEntry('edit', `${cookieData.name} (${domain})`);
-      }
-      this.closeCookieEditModal();
-      this.refreshCookieList();
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
+    const storeId = $('containerFilter').value || this.site?.storeId || DEFAULT_STORE_ID;
+    this.fillEditor({ domain: this.site?.host || '', path: '/', storeId, secure: true, sameSite: 'lax' });
+    this.setEditorMode(true);
+    this.openModal($('cookieEditModal'));
   }
 
   cloneEditingCookie() {
-    if (!this.editingCookie) return;
-    this.isCreatingCookie = true;
-    this.cookieModalTitle.textContent = t('createCookie') + ' (Clone)';
-    this.editCookieName.readOnly = false;
-    this.editCookieDomain.readOnly = false;
-    this.cloneCookieBtn.style.display = 'none';
-    this.deleteCookieBtn.style.display = 'none';
-    this.saveCookieBtn.textContent = t('create');
     this.editingCookie = null;
+    this.setEditorMode(true);
+    $('editCookieName').focus();
+    this.toast(t('cloneHint'));
   }
 
-  // ============ BULK ACTIONS ============
-  async deleteSelectedCookies() {
-    if (this.selectedCookieKeys.size === 0) return;
-    if (!confirm(`Delete ${this.selectedCookieKeys.size} cookies?`)) return;
-
-    const toDelete = this.allCookies.filter(c => this.selectedCookieKeys.has(`${c.name}|||${c.domain}`) && !this.isProtected(c));
-    this.undoStack.push({ type: 'bulkDelete', cookies: toDelete.map(c => ({ ...c })) });
-
-    for (const c of toDelete) {
-      try {
-        const url = `http${c.secure ? 's' : ''}://${c.domain.replace(/^\./, '')}${c.path}`;
-        await browser.cookies.remove({ url, name: c.name });
-      } catch (e) {}
-    }
-
-    this.addHistoryEntry('delete', `Bulk: ${toDelete.length} cookies`);
-    this.showMessage(`${toDelete.length} cookies deleted`, 'success');
-    this.selectedCookieKeys.clear();
-    this.selectAllCheckbox.checked = false;
-    this.refreshCookieList();
+  readEditor() {
+    const domain = $('editCookieDomain').value.trim();
+    const expiry = $('editCookieExpiry').value;
+    const original = this.editingCookie;
+    return {
+      name: $('editCookieName').value.trim(),
+      value: $('editCookieValue').value,
+      domain,
+      path: $('editCookiePath').value.trim() || '/',
+      storeId: $('editCookieStore').value || DEFAULT_STORE_ID,
+      secure: $('editCookieSecure').checked,
+      httpOnly: $('editCookieHttpOnly').checked,
+      sameSite: $('editCookieSameSite').value,
+      expirationDate: expiry ? Math.floor(new Date(expiry).getTime() / 1000) : undefined,
+      hostOnly: original && original.domain === domain ? original.hostOnly : !domain.startsWith('.'),
+      partitionKey: original?.partitionKey,
+      firstPartyDomain: original?.firstPartyDomain
+    };
   }
 
-  async exportSelectedCookies() {
-    const selected = this.allCookies.filter(c => this.selectedCookieKeys.has(`${c.name}|||${c.domain}`));
-    if (selected.length === 0) return;
-    const exportData = { version: '3.0', exportDate: new Date().toISOString(), browser: 'Firefox', encrypted: false, cookies: selected.map(c => this.cookieToExport(c)) };
-    this.downloadFile(JSON.stringify(exportData, null, 2), `cookies_selected_${this.formatDate()}.json`);
-    this.showMessage(`${selected.length} ${t('exportSuccess')}`, 'success');
-    this.addHistoryEntry('export', `Selected: ${selected.length} cookies`);
-  }
+  async saveEditingCookie() {
+    const draft = this.readEditor();
+    if (!draft.name || !normalizeDomain(draft.domain)) { this.toast(t('nameDomainRequired'), 'error'); return; }
+    if (draft.expirationDate && draft.expirationDate < Date.now() / 1000) { this.toast(t('expiryInPast'), 'error'); return; }
 
-  async deleteAllVisibleCookies() {
-    if (!confirm(`Delete ${this.filteredCookies.length} cookies?`)) return;
-    const toDelete = this.filteredCookies.filter(c => !this.isProtected(c));
-    this.undoStack.push({ type: 'bulkDelete', cookies: toDelete.map(c => ({ ...c })) });
-
-    for (const c of toDelete) {
-      try {
-        const url = `http${c.secure ? 's' : ''}://${c.domain.replace(/^\./, '')}${c.path}`;
-        await browser.cookies.remove({ url, name: c.name });
-      } catch (e) {}
-    }
-
-    this.addHistoryEntry('delete', `All visible: ${toDelete.length} cookies`);
-    this.showMessage(`${toDelete.length} cookies deleted`, 'success');
-    this.refreshCookieList();
-  }
-
-  // ============ CLEANING ============
-  async cleanTrackers() {
+    const original = this.editingCookie;
     try {
-      const result = await browser.runtime.sendMessage({ action: 'cleanTrackers', trackers: this.trackers });
-      this.showMessage(`${result.deleted} ${t('trackersDeleted')}`, 'success');
-      this.addHistoryEntry('clean', `Trackers: ${result.deleted}`);
-      this.refreshCookieList();
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
-  }
-
-  async cleanExpired() {
-    try {
-      const result = await browser.runtime.sendMessage({ action: 'cleanExpired' });
-      this.showMessage(`${result.deleted} ${t('expiredDeleted')}`, 'success');
-      this.addHistoryEntry('clean', `Expired: ${result.deleted}`);
-      this.refreshCookieList();
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
-  }
-
-  // ============ TRACKER CHECK ============
-  isTracker(domain) { return this.trackers.some(t => domain.includes(t)); }
-
-  // ============ STATS ============
-  async loadStats() {
-    try {
-      const cookies = await browser.cookies.getAll({});
-      this.totalCookies.textContent = cookies.length;
-      this.selectedCookies.textContent = cookies.length;
-    } catch (e) {}
-  }
-
-  async updateSelectedCount() {
-    const cookies = await this.getFilteredExportCookies();
-    this.selectedCookies.textContent = cookies.length;
-  }
-
-  async getFilteredExportCookies() {
-    let cookies = await browser.cookies.getAll({});
-    if (this.filterCurrentSite.checked && this.currentDomainValue) {
-      cookies = cookies.filter(c => c.domain.includes(this.currentDomainValue) || this.currentDomainValue.includes(c.domain.replace(/^\./, '')));
-    } else if (this.filterCustomDomain.checked && this.customDomain.value) {
-      const d = this.customDomain.value.toLowerCase();
-      cookies = cookies.filter(c => c.domain.toLowerCase().includes(d) || d.includes(c.domain.replace(/^\./, '').toLowerCase()));
+      await setCookie(draft);
+      if (original && cookieKey(original) !== cookieKey(draft)) await removeCookie(original);
+      if (original && this.isProtected(original)) {
+        await browser.runtime.sendMessage({ action: 'unprotectCookie', cookie: serializeCookie(original) });
+        await browser.runtime.sendMessage({ action: 'protectCookie', cookie: serializeCookie(draft) });
+      }
+      this.toast(original ? t('cookieSaved') : t('cookieCreated'));
+      this.addHistoryEntry('edit', `${original ? '' : '+ '}${draft.name} (${draft.domain})`);
+      this.closeModal($('cookieEditModal'));
+      await this.refreshCookieList();
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
     }
-    if (this.excludeTrackers.checked) cookies = cookies.filter(c => !this.isTracker(c.domain));
-    return cookies;
+  }
+
+  async deleteEditingCookie() {
+    const cookie = this.editingCookie;
+    if (!cookie) return;
+    if (this.isProtected(cookie)) { this.toast(t('cookieIsProtected'), 'warning'); return; }
+    this.closeModal($('cookieEditModal'));
+    await this.deleteCookies([cookie]);
   }
 
   // ============ DASHBOARD ============
-  async refreshDashboard() {
-    const cookies = await browser.cookies.getAll({});
+  meterHtml({ label, value, max, color, attrs = '' }) {
+    const pct = value && max ? Math.max(2, Math.round((value / max) * 100)) : 0;
+    const colorVar = color ? `--c:${escapeHtml(color)};` : '';
+    return `<div class="meter${attrs ? ' clickable' : ''}" ${attrs} style="${colorVar}">
+      <span class="meter-label">${color ? '<span class="dot"></span>' : ''}${escapeHtml(label)}</span>
+      <span class="meter-value">${value}</span>
+      <div class="meter-track"><div class="meter-fill" style="--w:${pct}%"></div></div>
+    </div>`;
+  }
+
+  refreshDashboard() {
+    const cookies = this.allCookies;
     const total = cookies.length;
-    const trackers = cookies.filter(c => this.isTracker(c.domain)).length;
-    const secure = cookies.filter(c => c.secure).length;
-    const httpOnly = cookies.filter(c => c.httpOnly).length;
-    const session = cookies.filter(c => c.session).length;
-    const persistent = total - session;
+    const count = (predicate) => cookies.filter(predicate).length;
+    const trackers = count(c => this.isTracker(c.domain));
+    const secure = count(c => c.secure);
+    const httpOnly = count(c => c.httpOnly);
+    const session = count(c => c.session);
+    const partitioned = count(c => c.partitionKey?.topLevelSite);
+    const domainCounts = new Map();
+    cookies.forEach(c => { const d = normalizeDomain(c.domain); domainCounts.set(d, (domainCounts.get(d) || 0) + 1); });
 
-    document.getElementById('dashTotalCookies').textContent = total;
-    document.getElementById('dashTrackerCount').textContent = trackers;
-    document.getElementById('dashSecureCount').textContent = secure;
-    document.getElementById('dashSessionCount').textContent = session;
+    $('dashTotalCookies').textContent = total;
+    $('dashTrackerCount').textContent = trackers;
+    $('dashSecureCount').textContent = secure;
+    $('dashDomainCount').textContent = domainCounts.size;
 
-    // Privacy score: higher is better (more secure, less trackers)
-    const securePct = total ? Math.round(secure / total * 100) : 0;
-    const httpOnlyPct = total ? Math.round(httpOnly / total * 100) : 0;
-    const trackerPct = total ? Math.round(trackers / total * 100) : 0;
-    const privacyScore = total ? Math.round((securePct + httpOnlyPct + (100 - trackerPct)) / 3) : 100;
-
-    document.getElementById('dashSecurePct').textContent = securePct + '%';
-    document.getElementById('dashHttpOnlyPct').textContent = httpOnlyPct + '%';
-    document.getElementById('dashTrackerPct').textContent = trackerPct + '%';
-    document.getElementById('privacyScoreText').textContent = privacyScore + '%';
-
-    // Animate privacy ring
-    const ring = document.getElementById('privacyRing');
+    const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+    const score = total ? Math.round((pct(secure) + pct(httpOnly) + (100 - pct(trackers))) / 3) : 100;
+    const tone = score >= 70 ? 'success' : score >= 45 ? 'warning' : 'danger';
     const circumference = 2 * Math.PI * 52;
-    ring.style.strokeDashoffset = circumference - (circumference * privacyScore / 100);
-    ring.style.stroke = privacyScore > 70 ? 'var(--success)' : privacyScore > 40 ? 'var(--warning)' : 'var(--danger)';
+    const ring = $('privacyRing');
+    ring.style.strokeDashoffset = String(circumference - (circumference * score) / 100);
+    ring.style.stroke = `var(--${tone})`;
+    $('privacyScoreText').textContent = score;
+    $('privacyVerdict').textContent = t(tone === 'success' ? 'scoreGood' : tone === 'warning' ? 'scoreOk' : 'scoreBad');
+    $('privacyVerdict').style.color = `var(--${tone})`;
+    $('dashCleanTrackers').hidden = trackers === 0;
+    $('dashCleanLabel').textContent = t('cleanNTrackers', { n: trackers });
 
-    // Size estimate
-    const totalSize = cookies.reduce((sum, c) => sum + (c.name.length + (c.value?.length || 0) + (c.domain?.length || 0) + (c.path?.length || 0)), 0);
-    const sizeKB = (totalSize / 1024).toFixed(1);
-    document.getElementById('sizeText').textContent = `${sizeKB} KB (${total} cookies)`;
-    const maxSize = 4096 * total; // theoretical max
-    const pct = maxSize ? Math.min(100, (totalSize / maxSize) * 100) : 0;
-    document.getElementById('sizeBar').style.width = Math.max(2, pct) + '%';
+    $('typeMeters').innerHTML = [
+      { label: t('filterSecure'), value: secure, color: 'var(--info)' },
+      { label: 'HttpOnly', value: httpOnly, color: 'var(--success)' },
+      { label: t('filterSession'), value: session, color: 'var(--warning)' },
+      { label: t('persistentCookies'), value: total - session, color: 'var(--accent)' },
+      { label: t('filterTracker'), value: trackers, color: 'var(--danger)' },
+      { label: t('partitioned'), value: partitioned, color: NEUTRAL_COLOR }
+    ].map(m => this.meterHtml({ ...m, max: total })).join('');
 
-    // Top domains bar chart
-    const domainCounts = {};
-    cookies.forEach(c => { const d = c.domain.replace(/^\./, ''); domainCounts[d] = (domainCounts[d] || 0) + 1; });
-    const topDomains = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    const maxCount = topDomains[0]?.[1] || 1;
+    const storeCounts = new Map();
+    cookies.forEach(c => storeCounts.set(c.storeId, (storeCounts.get(c.storeId) || 0) + 1));
+    $('containerMeters').innerHTML = [...storeCounts].sort((a, b) => b[1] - a[1]).map(([storeId, value]) => {
+      const store = this.storeMeta(storeId);
+      return this.meterHtml({ label: store.name, value, max: total, color: store.color, attrs: `data-store="${escapeHtml(storeId)}"` });
+    }).join('') || this.emptyHtml('cookie', t('noData'));
 
-    document.getElementById('topDomainsChart').innerHTML = topDomains.map(([domain, count]) =>
-      `<div class="bar-chart-item">
-        <div class="bar-chart-label" title="${domain}">${domain}</div>
-        <div class="bar-chart-bar-wrapper"><div class="bar-chart-bar" style="width:${(count / maxCount) * 100}%"></div></div>
-        <div class="bar-chart-count">${count}</div>
-      </div>`
-    ).join('');
+    const top = [...domainCounts].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    $('topDomainsChart').innerHTML = top.map(([domain, value]) =>
+      this.meterHtml({ label: domain, value, max: top[0][1], attrs: `data-domain="${escapeHtml(domain)}"` })
+    ).join('') || this.emptyHtml('cookie', t('noData'));
 
-    // Pie chart
-    this.drawPieChart([
-      { label: 'Secure', value: secure, color: PIE_COLORS[0] },
-      { label: 'HttpOnly', value: httpOnly, color: PIE_COLORS[1] },
-      { label: 'Trackers', value: trackers, color: PIE_COLORS[2] },
-      { label: 'Session', value: session, color: PIE_COLORS[3] },
-      { label: 'Persistent', value: persistent, color: PIE_COLORS[4] }
-    ]);
+    const bytes = cookies.reduce((sum, c) => sum + c.name.length + (c.value?.length || 0), 0);
+    $('sizeText').textContent = t('sizeSummary', { size: (bytes / 1024).toFixed(1) });
+
+    $('dashboard-tab').onclick = (e) => {
+      const meter = e.target.closest('[data-domain], [data-store]');
+      if (!meter) return;
+      this.resetFilters();
+      if (meter.dataset.domain) $('domainFilter').value = meter.dataset.domain;
+      if (meter.dataset.store) $('containerFilter').value = meter.dataset.store;
+      this.filterCookieList();
+      this.switchTab('cookies');
+    };
   }
 
-  drawPieChart(data) {
-    const svg = document.getElementById('typePieChart');
-    const legend = document.getElementById('typePieLegend');
-    const total = data.reduce((s, d) => s + d.value, 0);
-    if (total === 0) { svg.innerHTML = ''; legend.innerHTML = '<div class="empty-state">No data</div>'; return; }
-
-    let cumulative = 0;
-    let paths = '';
-    data.forEach(d => {
-      if (d.value === 0) return;
-      const pct = d.value / total;
-      const startAngle = cumulative * 2 * Math.PI;
-      cumulative += pct;
-      const endAngle = cumulative * 2 * Math.PI;
-
-      if (pct >= 0.999) {
-        paths += `<circle cx="100" cy="100" r="80" fill="${d.color}"/>`;
-      } else {
-        const x1 = 100 + 80 * Math.sin(startAngle);
-        const y1 = 100 - 80 * Math.cos(startAngle);
-        const x2 = 100 + 80 * Math.sin(endAngle);
-        const y2 = 100 - 80 * Math.cos(endAngle);
-        const largeArc = pct > 0.5 ? 1 : 0;
-        paths += `<path d="M100,100 L${x1},${y1} A80,80 0 ${largeArc},1 ${x2},${y2} Z" fill="${d.color}"/>`;
-      }
-    });
-
-    svg.innerHTML = paths;
-    legend.innerHTML = data.filter(d => d.value > 0).map(d =>
-      `<div class="pie-legend-item"><span class="pie-legend-dot" style="background:${d.color}"></span>${d.label}: ${d.value} (${Math.round(d.value / total * 100)}%)</div>`
-    ).join('');
-  }
-
-  // ============ MONITOR ============
-  initMonitor() {
+  // ============ LIVE MONITOR ============
+  async initMonitor() {
     browser.runtime.onMessage.addListener((message) => {
-      if (message.action === 'cookieChanged' && !this.monitorPaused) {
-        this.addMonitorEntry(message.entry);
-      }
+      if (message?.action !== 'cookieChanged') return;
+      this.scheduleRefresh();
+      if (this.monitorPaused) return;
+      const entry = message.entry;
+      if (entry.cause === 'overwrite' && !entry.removed) return;
+      this.monitorEntries.unshift(entry);
+      if (this.monitorEntries.length > 500) this.monitorEntries.length = 500;
+      this.scheduleMonitorRender();
     });
-  }
-
-  addMonitorEntry(entry) {
-    this.monitorEntries.unshift(entry);
-    if (this.monitorEntries.length > 500) this.monitorEntries.length = 500;
-
-    if (entry.removed) this.monitorStats.deleted++;
-    else if (entry.cause === 'overwrite') this.monitorStats.updated++;
-    else this.monitorStats.created++;
-
-    this.updateMonitorStats();
-    this.renderMonitorLog();
-  }
-
-  updateMonitorStats() {
-    this.monitorCreated.textContent = this.monitorStats.created;
-    this.monitorDeleted.textContent = this.monitorStats.deleted;
-    this.monitorUpdated.textContent = this.monitorStats.updated;
+    await this.loadMonitorLog();
   }
 
   async loadMonitorLog() {
     try {
-      const result = await browser.runtime.sendMessage({ action: 'getMonitorLog' });
-      if (result.log && result.log.length > this.monitorEntries.length) {
-        this.monitorEntries = result.log;
-        this.renderMonitorLog();
-      }
-    } catch (e) {}
+      const { log = [] } = await browser.runtime.sendMessage({ action: 'getMonitorLog' });
+      this.monitorEntries = log.slice();
+    } catch (e) { this.monitorEntries = []; }
+    this.renderMonitorLog();
+  }
+
+  /** Legacy entries (v3.0) have no "type". */
+  entryType(entry) {
+    if (entry.type) return entry.type;
+    if (entry.removed) return entry.cause === 'overwrite' ? 'updated' : 'deleted';
+    return 'created';
+  }
+
+  scheduleMonitorRender() {
+    if (this.monitorFrame) return;
+    this.monitorFrame = requestAnimationFrame(() => { this.monitorFrame = 0; this.renderMonitorLog(); });
   }
 
   renderMonitorLog() {
-    let entries = this.monitorEntries;
-    if (this.monitorFilter === 'created') entries = entries.filter(e => !e.removed && e.cause !== 'overwrite');
-    else if (this.monitorFilter === 'deleted') entries = entries.filter(e => e.removed);
+    const stats = { created: 0, updated: 0, deleted: 0 };
+    this.monitorEntries.forEach(e => { stats[this.entryType(e)]++; });
+    $('monitorCreated').textContent = stats.created;
+    $('monitorUpdated').textContent = stats.updated;
+    $('monitorDeleted').textContent = stats.deleted;
 
-    if (entries.length === 0) {
-      this.monitorLog.innerHTML = '<div class="empty-state">Waiting for cookie changes...</div>';
+    const query = $('monitorSearch').value.trim().toLowerCase();
+    const entries = this.monitorEntries.filter(e =>
+      (this.monitorFilter === 'all' || this.entryType(e) === this.monitorFilter) &&
+      (!query || e.cookie.name.toLowerCase().includes(query) || e.cookie.domain.toLowerCase().includes(query)));
+
+    if (!entries.length) {
+      $('monitorLog').innerHTML = this.emptyHtml('pulse', t('waitingChanges'), t('waitingChangesHint'));
       return;
     }
-
-    this.monitorLog.innerHTML = entries.slice(0, 100).map(e => {
-      const time = new Date(e.timestamp).toLocaleTimeString();
-      let eventType, eventClass;
-      if (e.removed) { eventType = 'DEL'; eventClass = 'deleted'; }
-      else if (e.cause === 'overwrite') { eventType = 'UPD'; eventClass = 'updated'; }
-      else { eventType = 'NEW'; eventClass = 'created'; }
-
-      return `<div class="monitor-entry ${eventClass}">
-        <span class="monitor-time">${time}</span>
-        <span class="monitor-event ${eventClass}">${eventType}</span>
-        <div class="monitor-cookie-info">
-          <div class="monitor-cookie-name">${this.escapeHtml(e.cookie.name)}</div>
-          <div class="monitor-cookie-domain">${e.cookie.domain}</div>
+    const labels = { created: t('eventCreated'), updated: t('eventUpdated'), deleted: t('eventDeleted') };
+    $('monitorLog').innerHTML = entries.slice(0, 150).map(e => {
+      const type = this.entryType(e);
+      const store = (e.cookie.storeId || DEFAULT_STORE_ID) === DEFAULT_STORE_ID ? '' : ` &middot; ${escapeHtml(this.storeMeta(e.cookie.storeId).name)}`;
+      return `<div class="event">
+        <span class="event-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+        <span class="pill ${type}">${escapeHtml(labels[type])}</span>
+        <div class="event-info">
+          <div class="event-name">${escapeHtml(e.cookie.name)}</div>
+          <div class="event-domain">${escapeHtml(normalizeDomain(e.cookie.domain))}${store}</div>
         </div>
       </div>`;
     }).join('');
   }
 
-  toggleMonitorPause() {
+  updateMonitorPauseLabel() {
+    $('monitorPauseBtn').textContent = this.monitorPaused ? t('monitorResume') : t('monitorPause');
+    $('monitorLiveBadge').classList.toggle('paused', this.monitorPaused);
+  }
+
+  async toggleMonitorPause() {
     this.monitorPaused = !this.monitorPaused;
-    this.monitorPauseBtn.textContent = this.monitorPaused ? t('monitorResume') : t('monitorPause');
-    this.monitorLiveBadge.classList.toggle('paused', this.monitorPaused);
+    this.updateMonitorPauseLabel();
+    if (!this.monitorPaused) await this.loadMonitorLog();
   }
 
   clearMonitor() {
     this.monitorEntries = [];
-    this.monitorStats = { created: 0, deleted: 0, updated: 0 };
-    this.updateMonitorStats();
     this.renderMonitorLog();
     browser.runtime.sendMessage({ action: 'clearMonitorLog' }).catch(() => {});
   }
 
-  // ============ EXPORT ============
-  cookieToExport(c) {
-    return { domain: c.domain, expirationDate: c.expirationDate, hostOnly: c.hostOnly, httpOnly: c.httpOnly, name: c.name, path: c.path, sameSite: c.sameSite, secure: c.secure, session: c.session, value: c.value };
+  // ============ BACKUP: EXPORT ============
+  bindBackupEvents(on) {
+    document.querySelectorAll('input[name="exportScope"]').forEach(r => r.addEventListener('change', () => {
+      $('customDomain').hidden = this.exportScope() !== 'custom';
+      this.updateExportCounts();
+    }));
+    document.querySelectorAll('input[name="exportFormat"]').forEach(r => r.addEventListener('change', () => this.updateEncryptionAvailability()));
+    on('customDomain', 'input', () => this.updateExportCounts());
+    on('exportContainer', 'change', () => this.updateExportCounts());
+    on('excludeTrackers', 'change', () => this.updateExportCounts());
+    on('encryptExport', 'change', () => { $('exportPassword').hidden = !$('encryptExport').checked; });
+    on('exportBtn', 'click', () => this.exportCookies());
+    on('copyClipboardBtn', 'click', () => this.copyExportToClipboard());
+
+    // Import
+    const dropzone = $('dropzone');
+    dropzone.addEventListener('click', () => $('fileInput').click());
+    dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); } });
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) this.handleImportFile(e.dataTransfer.files[0]);
+    });
+    on('fileInput', 'change', (e) => { if (e.target.files[0]) this.handleImportFile(e.target.files[0]); e.target.value = ''; });
+    on('decryptBtn', 'click', () => this.decryptPendingImport());
+    on('importPassword', 'keydown', (e) => { if (e.key === 'Enter') this.decryptPendingImport(); });
+    on('cancelDecrypt', 'click', () => { this.pendingEncrypted = null; $('passwordPanel').hidden = true; });
+    on('cancelImport', 'click', () => this.cancelPreview());
+    on('confirmImport', 'click', () => this.confirmImportCookies());
+
+    // Profiles
+    on('saveProfileBtn', 'click', () => this.saveProfile());
+    on('profileName', 'keydown', (e) => { if (e.key === 'Enter') this.saveProfile(); });
+    on('profileList', 'click', (e) => this.handleProfileClick(e));
+    on('compareBtn', 'click', () => this.compareProfiles());
+    on('autoBackupEnabled', 'change', () => { $('autoBackupOptions').hidden = !$('autoBackupEnabled').checked; this.saveAutoBackupSettings(); });
+    on('backupInterval', 'change', () => this.saveAutoBackupSettings());
+    this.updateEncryptionAvailability();
+  }
+
+  exportScope() { return document.querySelector('input[name="exportScope"]:checked').value; }
+  exportFormat() { return document.querySelector('input[name="exportFormat"]:checked').value; }
+
+  updateEncryptionAvailability() {
+    const isJson = this.exportFormat() === 'json';
+    $('encryptExport').disabled = !isJson;
+    $('encryptHint').hidden = isJson;
+    if (!isJson) { $('encryptExport').checked = false; $('exportPassword').hidden = true; }
+  }
+
+  getExportCookies() {
+    const scope = this.exportScope();
+    const custom = $('customDomain').value.trim();
+    const store = $('exportContainer').value;
+    return this.allCookies.filter(c => {
+      if (scope === 'site' && !this.appliesToSite(c)) return false;
+      if (scope === 'custom' && custom && !domainMatches(c.domain, custom)) return false;
+      if (store && c.storeId !== store) return false;
+      if ($('excludeTrackers').checked && this.isTracker(c.domain)) return false;
+      return true;
+    });
+  }
+
+  updateExportCounts() {
+    $('totalCookies').textContent = this.allCookies.length;
+    $('selectedCookies').textContent = this.getExportCookies().length;
   }
 
   async exportCookies() {
     try {
-      const cookies = await this.getFilteredExportCookies();
-      if (!cookies.length) { this.showMessage(t('noCookiesToExport'), 'warning'); return; }
+      const cookies = this.getExportCookies();
+      if (!cookies.length) { this.toast(t('noCookiesToExport'), 'warning'); return; }
+      const format = this.exportFormat();
+      const stamp = formatDateStamp();
+      let content, fileName;
 
-      const format = document.querySelector('input[name="exportFormat"]:checked').value;
-      let fileName, fileContent;
-
-      if (format === 'netscape') {
-        fileContent = this.toNetscapeFormat(cookies);
-        fileName = `cookies_${this.formatDate()}.txt`;
-      } else if (format === 'csv') {
-        fileContent = this.toCSVFormat(cookies);
-        fileName = `cookies_${this.formatDate()}.csv`;
-      } else if (format === 'har') {
-        fileContent = this.toHARFormat(cookies);
-        fileName = `cookies_${this.formatDate()}.har`;
-      } else {
-        const exportData = { version: '3.0', exportDate: new Date().toISOString(), browser: 'Firefox', encrypted: this.encryptExport.checked, cookies: cookies.map(c => this.cookieToExport(c)) };
-        if (this.encryptExport.checked) {
-          const pwd = this.exportPassword.value;
-          if (!pwd || pwd.length < 4) { this.showMessage(t('passwordTooShort'), 'error'); return; }
-          exportData.cookies = await this.encrypt(exportData.cookies, pwd);
-          fileName = `cookies_encrypted_${this.formatDate()}.cookiejar`;
+      if (format === 'netscape') { content = this.toNetscapeFormat(cookies); fileName = `cookies_${stamp}.txt`; }
+      else if (format === 'csv') { content = this.toCSVFormat(cookies); fileName = `cookies_${stamp}.csv`; }
+      else if (format === 'har') { content = this.toHARFormat(cookies); fileName = `cookies_${stamp}.har`; }
+      else {
+        const data = this.buildJsonExport(cookies);
+        if ($('encryptExport').checked) {
+          const password = $('exportPassword').value;
+          if (password.length < 4) { this.toast(t('passwordTooShort'), 'error'); $('exportPassword').focus(); return; }
+          data.encrypted = true;
+          data.kdfIterations = PBKDF2_ITERATIONS;
+          data.cookies = await this.encrypt(data.cookies, password);
+          fileName = `cookies_encrypted_${stamp}.cookiejar`;
         } else {
-          fileName = `cookies_${this.formatDate()}.json`;
+          fileName = `cookies_${stamp}.json`;
         }
-        fileContent = JSON.stringify(exportData, null, 2);
+        content = JSON.stringify(data, null, 2);
       }
 
-      this.downloadFile(fileContent, fileName);
-      this.showMessage(`${cookies.length} ${t('exportSuccess')}`, 'success');
-      this.addHistoryEntry('export', `${format.toUpperCase()}: ${cookies.length} cookies`);
-    } catch (e) { this.showMessage('Export error: ' + e.message, 'error'); }
+      downloadFile(content, fileName);
+      this.toast(t('exportDone', { n: cookies.length }));
+      this.addHistoryEntry('export', `${format.toUpperCase()}: ${t('countCookies', { n: cookies.length })}`);
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
+  }
+
+  buildJsonExport(cookies) {
+    return { version: '3.1', exportDate: new Date().toISOString(), browser: 'Firefox', encrypted: false, cookies: cookies.map(serializeCookie) };
+  }
+
+  exportSelectedCookies() {
+    const cookies = this.getSelectedCookies();
+    if (!cookies.length) return;
+    downloadFile(JSON.stringify(this.buildJsonExport(cookies), null, 2), `cookies_selected_${formatDateStamp()}.json`);
+    this.toast(t('exportDone', { n: cookies.length }));
+    this.addHistoryEntry('export', `JSON: ${t('countCookies', { n: cookies.length })}`);
   }
 
   async copyExportToClipboard() {
-    try {
-      const cookies = await this.getFilteredExportCookies();
-      if (!cookies.length) { this.showMessage(t('noCookiesToExport'), 'warning'); return; }
-      const data = JSON.stringify(cookies.map(c => this.cookieToExport(c)), null, 2);
-      await navigator.clipboard.writeText(data);
-      this.showMessage(t('copiedToClipboard'), 'success');
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
+    const cookies = this.getExportCookies();
+    if (!cookies.length) { this.toast(t('noCookiesToExport'), 'warning'); return; }
+    await this.copyToClipboard(JSON.stringify(cookies.map(serializeCookie), null, 2));
   }
 
   toNetscapeFormat(cookies) {
-    const lines = ['# Netscape HTTP Cookie File', '# Cookie Manager Pro v3.0', ''];
+    const lines = ['# Netscape HTTP Cookie File', '# Exported by Cookie Manager Pro', ''];
     for (const c of cookies) {
-      const domain = c.domain.startsWith('.') ? c.domain : '.' + c.domain;
-      const sub = c.domain.startsWith('.') ? 'TRUE' : 'FALSE';
-      const secure = c.secure ? 'TRUE' : 'FALSE';
-      const expiry = c.expirationDate ? Math.floor(c.expirationDate) : '0';
-      lines.push(`${domain}\t${sub}\t${c.path}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
+      const includeSubdomains = c.domain.startsWith('.') ? 'TRUE' : 'FALSE';
+      const domain = (c.httpOnly ? '#HttpOnly_' : '') + c.domain;
+      const expiry = c.expirationDate ? Math.floor(c.expirationDate) : 0;
+      lines.push([domain, includeSubdomains, c.path, c.secure ? 'TRUE' : 'FALSE', expiry, c.name, c.value].join('\t'));
     }
-    return lines.join('\n');
+    return lines.join('\n') + '\n';
   }
 
   toCSVFormat(cookies) {
-    const headers = ['name', 'value', 'domain', 'path', 'secure', 'httpOnly', 'sameSite', 'expirationDate', 'session'];
-    const rows = [headers.join(',')];
-    for (const c of cookies) {
-      rows.push([
-        this.csvEscape(c.name), this.csvEscape(c.value), this.csvEscape(c.domain),
-        this.csvEscape(c.path), c.secure, c.httpOnly, c.sameSite || '',
-        c.expirationDate || '', c.session
-      ].join(','));
-    }
-    return rows.join('\n');
-  }
-
-  csvEscape(str) {
-    if (!str) return '""';
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return '"' + str.replace(/"/g, '""') + '"';
-    }
-    return str;
+    const headers = ['name', 'value', 'domain', 'path', 'secure', 'httpOnly', 'sameSite', 'expirationDate', 'session', 'storeId'];
+    const escape = (value) => {
+      const text = String(value ?? '');
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    return [headers.join(','), ...cookies.map(c => headers.map(h => escape(c[h])).join(','))].join('\n');
   }
 
   toHARFormat(cookies) {
-    const har = {
+    return JSON.stringify({
       log: {
         version: '1.2',
-        creator: { name: 'Cookie Manager Pro', version: '3.0' },
+        creator: { name: 'Cookie Manager Pro', version: '3.1' },
         entries: [],
         cookies: cookies.map(c => ({
           name: c.name, value: c.value, path: c.path, domain: c.domain,
@@ -1066,60 +1232,78 @@ class CookieManager {
           httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite
         }))
       }
-    };
-    return JSON.stringify(har, null, 2);
+    }, null, 2);
   }
 
-  // ============ IMPORT ============
+  // ============ BACKUP: IMPORT ============
+  /** Detects format (JSON / array / HAR / Netscape / CSV) and returns cookies, or null when encrypted. */
+  parseImportContent(content, fileName) {
+    const text = content.replace(/^﻿/, '').trim();
+    if (text.startsWith('{') || text.startsWith('[')) {
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) return data;
+      if (data?.log?.cookies) return this.parseHARCookies(data.log.cookies);
+      if (!data.cookies) throw new Error(t('invalidFile'));
+      if (data.encrypted) { this.pendingEncrypted = data; return null; }
+      return data.cookies;
+    }
+    if (/\t/.test(text) || text.startsWith('# Netscape') || text.startsWith('# HTTP Cookie')) return this.parseNetscapeFormat(text);
+    if (fileName.toLowerCase().endsWith('.csv') || /^name,/i.test(text)) return this.parseCSVFormat(text);
+    throw new Error(t('invalidFile'));
+  }
+
   async handleImportFile(file) {
-    this.hideMessage();
+    $('importStats').hidden = true;
     try {
-      const content = await file.text();
-      let cookies;
-
-      if (content.startsWith('# Netscape') || content.startsWith('# HTTP Cookie')) {
-        cookies = this.parseNetscapeFormat(content);
-      } else if (file.name.endsWith('.csv')) {
-        cookies = this.parseCSVFormat(content);
-      } else if (file.name.endsWith('.har')) {
-        cookies = this.parseHARFormat(content);
-      } else {
-        const data = JSON.parse(content);
-        if (!data.cookies) throw new Error(t('invalidFile'));
-        if (data.encrypted) {
-          const pwd = this.importPassword.value;
-          if (!pwd) { this.showMessage(t('passwordRequired'), 'error'); this.encryptImport.checked = true; this.importPassword.style.display = 'block'; return; }
-          try { cookies = await this.decrypt(data.cookies, pwd); } catch (e) { this.showMessage(t('wrongPassword'), 'error'); return; }
-        } else { cookies = data.cookies; }
+      const cookies = this.parseImportContent(await file.text(), file.name);
+      if (cookies === null) {
+        $('passwordPanel').hidden = false;
+        $('importPassword').value = '';
+        $('importPassword').focus();
+        return;
       }
+      this.proceedImport(cookies);
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
+  }
 
-      if (this.previewBeforeImport.checked) this.showImportPreview(cookies);
-      else this.importCookies(cookies);
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
-    this.fileInput.value = '';
+  async decryptPendingImport() {
+    const data = this.pendingEncrypted;
+    if (!data) return;
+    try {
+      const cookies = await this.decrypt(data.cookies, $('importPassword').value, data.kdfIterations || LEGACY_PBKDF2_ITERATIONS);
+      this.pendingEncrypted = null;
+      $('passwordPanel').hidden = true;
+      this.proceedImport(cookies);
+    } catch (e) {
+      this.toast(t('wrongPassword'), 'error');
+      $('importPassword').select();
+    }
+  }
+
+  proceedImport(cookies) {
+    const valid = cookies.filter(c => c && c.name !== undefined && c.domain);
+    if (!valid.length) { this.toast(t('invalidFile'), 'error'); return; }
+    if ($('previewBeforeImport').checked) this.showImportPreview(valid);
+    else this.importCookies(valid);
   }
 
   parseNetscapeFormat(content) {
     const cookies = [];
-    for (const line of content.split('\n')) {
-      if (line.startsWith('#') || !line.trim()) continue;
+    for (const rawLine of content.split(/\r?\n/)) {
+      let line = rawLine;
+      let httpOnly = false;
+      if (line.startsWith('#HttpOnly_')) { line = line.slice(10); httpOnly = true; }
+      if (!line.trim() || line.startsWith('#')) continue;
       const parts = line.split('\t');
-      if (parts.length >= 7) {
-        cookies.push({ domain: parts[0], hostOnly: parts[1] !== 'TRUE', path: parts[2], secure: parts[3] === 'TRUE', expirationDate: parseInt(parts[4]) || undefined, name: parts[5], value: parts[6], httpOnly: false, sameSite: 'no_restriction' });
-      }
-    }
-    return cookies;
-  }
-
-  parseCSVFormat(content) {
-    const lines = content.split('\n');
-    if (lines.length < 2) return [];
-    const cookies = [];
-    for (let i = 1; i < lines.length; i++) {
-      const parts = this.parseCSVLine(lines[i]);
-      if (parts.length >= 4) {
-        cookies.push({ name: parts[0], value: parts[1], domain: parts[2], path: parts[3] || '/', secure: parts[4] === 'true', httpOnly: parts[5] === 'true', sameSite: parts[6] || 'no_restriction', expirationDate: parts[7] ? parseFloat(parts[7]) : undefined, session: parts[8] === 'true' });
-      }
+      if (parts.length < 7) continue;
+      const expiry = parseInt(parts[4], 10);
+      cookies.push({
+        domain: parts[0], hostOnly: parts[1] !== 'TRUE' && !parts[0].startsWith('.'), path: parts[2] || '/',
+        secure: parts[3] === 'TRUE', expirationDate: expiry > 0 ? expiry : undefined, session: !(expiry > 0),
+        name: parts[5], value: parts.slice(6).join('\t'), httpOnly
+      });
     }
     return cookies;
   }
@@ -1129,218 +1313,271 @@ class CookieManager {
     let current = '';
     let inQuotes = false;
     for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
-      else current += line[i];
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; } else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+      else current += ch;
     }
     result.push(current);
     return result;
   }
 
-  parseHARFormat(content) {
-    const har = JSON.parse(content);
-    const harCookies = har?.log?.cookies || [];
+  parseCSVFormat(content) {
+    const lines = content.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = this.parseCSVLine(lines[0]).map(h => h.trim());
+    const bool = (v) => String(v).toLowerCase() === 'true';
+    return lines.slice(1).map(line => {
+      const cells = this.parseCSVLine(line);
+      const row = Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? '']));
+      return {
+        name: row.name, value: row.value, domain: row.domain, path: row.path || '/',
+        secure: bool(row.secure), httpOnly: bool(row.httpOnly), sameSite: row.sameSite || undefined,
+        expirationDate: row.expirationDate ? parseFloat(row.expirationDate) : undefined,
+        session: bool(row.session), storeId: row.storeId || undefined
+      };
+    });
+  }
+
+  parseHARCookies(harCookies) {
     return harCookies.map(c => ({
       name: c.name, value: c.value, domain: c.domain, path: c.path || '/',
-      secure: c.secure || false, httpOnly: c.httpOnly || false,
-      sameSite: c.sameSite || 'no_restriction',
+      secure: Boolean(c.secure), httpOnly: Boolean(c.httpOnly), sameSite: c.sameSite,
       expirationDate: c.expires ? new Date(c.expires).getTime() / 1000 : undefined
     }));
   }
 
   showImportPreview(cookies) {
-    this.pendingImportCookies = cookies;
-    this.dropzone.style.display = 'none';
-    this.previewPanel.style.display = 'block';
-    const domains = [...new Set(cookies.map(c => (c.domain || '').replace(/^\./, '')))];
-    this.previewCount.textContent = `${cookies.length} ${t('cookies')}`;
-    this.previewDomains.textContent = `${domains.length} ${t('domains')}`;
-    this.previewList.innerHTML = cookies.slice(0, 50).map(c => `<div class="preview-item"><strong>${this.escapeHtml(c.name)}</strong> - ${c.domain}</div>`).join('');
-    if (cookies.length > 50) this.previewList.innerHTML += `<div class="preview-item">... and ${cookies.length - 50} more</div>`;
+    this.pendingImport = cookies;
+    const domains = new Set(cookies.map(c => normalizeDomain(c.domain)));
+    $('previewCount').textContent = t('countCookies', { n: cookies.length });
+    $('previewDomains').textContent = t('countDomains', { n: domains.size });
+    const rows = cookies.slice(0, 60).map(c => `<div class="preview-item"><b>${escapeHtml(c.name)}</b><span>${escapeHtml(normalizeDomain(c.domain))}</span></div>`);
+    if (cookies.length > 60) rows.push(`<div class="preview-item"><span>${escapeHtml(t('andMore', { n: cookies.length - 60 }))}</span></div>`);
+    $('previewList').innerHTML = rows.join('');
+    $('previewPanel').hidden = false;
+    $('dropzone').hidden = true;
   }
 
-  cancelPreview() { this.pendingImportCookies = null; this.previewPanel.style.display = 'none'; this.dropzone.style.display = 'block'; }
+  cancelPreview() {
+    this.pendingImport = null;
+    $('previewPanel').hidden = true;
+    $('dropzone').hidden = false;
+  }
 
   confirmImportCookies() {
-    if (this.pendingImportCookies) { this.previewPanel.style.display = 'none'; this.importCookies(this.pendingImportCookies); this.pendingImportCookies = null; }
+    const cookies = this.pendingImport;
+    this.cancelPreview();
+    if (cookies) this.importCookies(cookies);
   }
 
   async importCookies(cookies) {
-    this.dropzone.style.display = 'none';
-    this.importStats.style.display = 'none';
-    this.loading.classList.add('show');
+    $('dropzone').hidden = true;
+    $('importStats').hidden = true;
+    $('loading').hidden = false;
     try {
-      const result = await browser.runtime.sendMessage({ action: 'importCookies', cookies });
-      this.loading.classList.remove('show');
-      this.dropzone.style.display = 'block';
-      this.importedCount.textContent = result.imported;
-      this.failedCount.textContent = result.failed;
-      this.importStats.style.display = 'flex';
-      this.loadStats();
-      this.refreshCookieList();
-      this.addHistoryEntry('import', `${result.imported} imported, ${result.failed} failed`);
-      this.showMessage(result.failed > 0 ? t('importPartial') : t('importSuccess'), result.failed > 0 ? 'warning' : 'success');
+      const result = await browser.runtime.sendMessage({ action: 'importCookies', cookies, options: { overwrite: $('overwriteExisting').checked } });
+      if (!result?.success) throw new Error(result?.error || 'import failed');
+      $('importedCount').textContent = result.imported;
+      $('skippedCount').textContent = result.skipped;
+      $('failedCount').textContent = result.failed;
+      $('importStats').hidden = false;
+      this.addHistoryEntry('import', t('importSummary', { imported: result.imported, failed: result.failed }));
+      this.toast(result.failed ? t('importPartial') : t('importDone', { n: result.imported }), result.failed ? 'warning' : 'success');
+      await this.refreshCookieList();
     } catch (e) {
-      this.loading.classList.remove('show');
-      this.dropzone.style.display = 'block';
-      this.showMessage('Error: ' + e.message, 'error');
+      this.toast(t('errorPrefix') + e.message, 'error');
+    } finally {
+      $('loading').hidden = true;
+      $('dropzone').hidden = false;
     }
   }
 
+  // ============ ENCRYPTION (AES-256-GCM + PBKDF2) ============
+  async deriveKey(password, salt, iterations, usage) {
+    const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, [usage]);
+  }
+
+  async encrypt(data, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await this.deriveKey(password, salt, PBKDF2_ITERATIONS, 'encrypt');
+    const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(data))));
+    const combined = new Uint8Array(salt.length + iv.length + encrypted.length);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(encrypted, salt.length + iv.length);
+    return bytesToBase64(combined);
+  }
+
+  async decrypt(encryptedData, password, iterations) {
+    const combined = base64ToBytes(encryptedData);
+    const key = await this.deriveKey(password, combined.slice(0, 16), iterations, 'decrypt');
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: combined.slice(16, 28) }, key, combined.slice(28));
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+
   // ============ PROFILES ============
-  loadProfiles() {
-    const saved = localStorage.getItem('cookieManagerProfiles');
-    this.profiles = saved ? JSON.parse(saved) : [];
+  async loadProfiles() {
+    try {
+      const { cookieProfiles } = await browser.storage.local.get('cookieProfiles');
+      if (cookieProfiles) {
+        this.profiles = cookieProfiles;
+      } else {
+        // v3.0 stored profiles in localStorage: migrate once
+        this.profiles = readJson(LS.legacyProfiles, []);
+        if (this.profiles.length) await this.saveProfiles();
+      }
+    } catch (e) { this.profiles = []; }
     this.renderProfiles();
-    this.updateCompareSelects();
+  }
+
+  async saveProfiles() {
+    await browser.storage.local.set({ cookieProfiles: this.profiles });
+    localStorage.removeItem(LS.legacyProfiles);
   }
 
   renderProfiles() {
-    if (this.profiles.length === 0) { this.profileList.innerHTML = `<p class="empty-state">${t('noProfiles')}</p>`; return; }
-    this.profileList.innerHTML = this.profiles.map((p, i) => `
-      <div class="profile-item">
-        <div class="profile-item-info">
-          <div class="profile-item-name">${this.escapeHtml(p.name)}</div>
-          <div class="profile-item-meta">${p.cookieCount} cookies - ${new Date(p.date).toLocaleDateString()}</div>
+    $('profileList').innerHTML = this.profiles.length ? this.profiles.map((p, i) => `
+      <div class="item" style="--i:${i}">
+        <div class="item-info">
+          <div class="item-title">${escapeHtml(p.name)}</div>
+          <div class="item-meta">${escapeHtml(t('countCookies', { n: p.cookieCount }))} &middot; ${escapeHtml(new Date(p.date).toLocaleString())}</div>
         </div>
-        <div class="profile-item-actions">
-          <button class="icon-btn small" data-action="load" data-index="${i}" title="Load"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>
-          <button class="icon-btn small" data-action="download" data-index="${i}" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-          <button class="icon-btn small" data-action="delete" data-index="${i}" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+        <div class="item-actions">
+          <button class="btn btn-soft btn-sm" data-profile-action="load" data-index="${i}">${escapeHtml(t('load'))}</button>
+          <button class="icon-btn sm" data-profile-action="download" data-index="${i}" title="${escapeHtml(t('download'))}">${icon('download')}</button>
+          <button class="icon-btn sm" data-profile-action="delete" data-index="${i}" title="${escapeHtml(t('delete'))}">${icon('trash')}</button>
         </div>
-      </div>`).join('');
+      </div>`).join('') : this.emptyHtml('archive', t('noProfiles'), t('noProfilesHint'));
 
-    this.profileList.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action;
-        const index = parseInt(btn.dataset.index);
-        if (action === 'load') this.loadProfile(index);
-        if (action === 'download') this.downloadProfile(index);
-        if (action === 'delete') this.deleteProfile(index);
-      });
-    });
-  }
-
-  updateCompareSelects() {
-    const options = '<option value="">--</option>' + this.profiles.map((p, i) => `<option value="${i}">${this.escapeHtml(p.name)}</option>`).join('');
-    this.compareProfile1.innerHTML = options;
-    this.compareProfile2.innerHTML = options;
+    const options = `<option value="">--</option>` + this.profiles.map((p, i) => `<option value="${i}">${escapeHtml(p.name)}</option>`).join('');
+    $('compareProfile1').innerHTML = options;
+    $('compareProfile2').innerHTML = options;
   }
 
   async saveProfile() {
-    const name = this.profileName.value.trim();
-    if (!name) return;
-    const cookies = await browser.cookies.getAll({});
-    this.profiles.push({ name, date: new Date().toISOString(), cookieCount: cookies.length, cookies: cookies.map(c => this.cookieToExport(c)) });
-    localStorage.setItem('cookieManagerProfiles', JSON.stringify(this.profiles));
-    this.profileName.value = '';
-    this.renderProfiles();
-    this.updateCompareSelects();
-    this.showMessage(t('profileSaved'), 'success');
+    const name = $('profileName').value.trim();
+    if (!name) { this.toast(t('profileNameRequired'), 'warning'); $('profileName').focus(); return; }
+    await this.refreshCookieList();
+    this.profiles.unshift({ name, date: new Date().toISOString(), cookieCount: this.allCookies.length, cookies: this.allCookies.map(serializeCookie) });
+    try {
+      await this.saveProfiles();
+      $('profileName').value = '';
+      this.renderProfiles();
+      this.toast(t('profileSaved'));
+    } catch (e) {
+      this.profiles.shift();
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
   }
 
-  async loadProfile(index) {
+  async handleProfileClick(e) {
+    const btn = e.target.closest('[data-profile-action]');
+    if (!btn) return;
+    const index = Number(btn.dataset.index);
     const profile = this.profiles[index];
     if (!profile) return;
-    await this.importCookies(profile.cookies);
-    this.showMessage(t('profileLoaded'), 'success');
+    const action = btn.dataset.profileAction;
+
+    if (action === 'load') {
+      if (!(await this.confirmDialog(t('confirmLoadProfile', { name: profile.name, n: profile.cookieCount }), t('load')))) return;
+      await this.importCookies(profile.cookies);
+    } else if (action === 'download') {
+      const data = { version: '3.1', exportDate: profile.date, browser: 'Firefox', encrypted: false, cookies: profile.cookies };
+      downloadFile(JSON.stringify(data, null, 2), `profile_${profile.name.replace(/[^\w-]+/g, '_')}_${formatDateStamp()}.json`);
+    } else if (action === 'delete') {
+      if (!(await this.confirmDialog(t('confirmDeleteProfile', { name: profile.name }), t('delete')))) return;
+      this.profiles.splice(index, 1);
+      await this.saveProfiles();
+      this.renderProfiles();
+      this.toast(t('profileDeleted'));
+    }
   }
 
-  downloadProfile(index) {
-    const profile = this.profiles[index];
-    if (!profile) return;
-    const exportData = { version: '3.0', exportDate: profile.date, browser: 'Firefox', encrypted: false, cookies: profile.cookies };
-    this.downloadFile(JSON.stringify(exportData, null, 2), `profile_${profile.name}_${this.formatDate()}.json`);
-  }
-
-  deleteProfile(index) {
-    this.profiles.splice(index, 1);
-    localStorage.setItem('cookieManagerProfiles', JSON.stringify(this.profiles));
-    this.renderProfiles();
-    this.updateCompareSelects();
-    this.showMessage(t('profileDeleted'), 'success');
-  }
-
-  // ============ PROFILE COMPARISON ============
   compareProfiles() {
-    const i1 = parseInt(this.compareProfile1.value);
-    const i2 = parseInt(this.compareProfile2.value);
-    if (isNaN(i1) || isNaN(i2) || i1 === i2) return;
-
-    const p1 = this.profiles[i1];
-    const p2 = this.profiles[i2];
-    if (!p1 || !p2) return;
-
-    const map1 = new Map(p1.cookies.map(c => [`${c.name}|||${c.domain}`, c]));
-    const map2 = new Map(p2.cookies.map(c => [`${c.name}|||${c.domain}`, c]));
-
+    const first = this.profiles[Number($('compareProfile1').value)];
+    const second = this.profiles[Number($('compareProfile2').value)];
+    const results = $('diffResults');
+    if (!$('compareProfile1').value || !$('compareProfile2').value || first === second) {
+      this.toast(t('selectTwoProfiles'), 'warning');
+      return;
+    }
+    const toMap = (profile) => new Map(profile.cookies.map(c => [cookieKey(c), c]));
+    const map1 = toMap(first);
+    const map2 = toMap(second);
     const added = [], removed = [], modified = [];
-
     map2.forEach((c, key) => {
       if (!map1.has(key)) added.push(c);
       else if (map1.get(key).value !== c.value) modified.push(c);
     });
     map1.forEach((c, key) => { if (!map2.has(key)) removed.push(c); });
 
-    this.diffResults.style.display = 'block';
-    if (added.length === 0 && removed.length === 0 && modified.length === 0) {
-      this.diffResults.innerHTML = '<div class="empty-state">Profiles are identical</div>';
+    results.hidden = false;
+    if (!added.length && !removed.length && !modified.length) {
+      results.innerHTML = this.emptyHtml('archive', t('profilesIdentical'));
       return;
     }
-
-    let html = `<div style="font-size:11px;margin-bottom:8px;color:var(--text-muted)">+${added.length} added, -${removed.length} removed, ~${modified.length} modified</div>`;
-    added.forEach(c => { html += `<div class="diff-item diff-added">+ ${this.escapeHtml(c.name)} <span style="color:var(--text-muted)">${c.domain}</span></div>`; });
-    removed.forEach(c => { html += `<div class="diff-item diff-removed">- ${this.escapeHtml(c.name)} <span style="color:var(--text-muted)">${c.domain}</span></div>`; });
-    modified.forEach(c => { html += `<div class="diff-item diff-modified">~ ${this.escapeHtml(c.name)} <span style="color:var(--text-muted)">${c.domain}</span></div>`; });
-
-    this.diffResults.innerHTML = html;
+    const item = (cls, sign, c) => `<div class="diff-item ${cls}">${sign} <b>${escapeHtml(c.name)}</b> <span>${escapeHtml(normalizeDomain(c.domain))}</span></div>`;
+    results.innerHTML = `<div class="diff-summary">${escapeHtml(t('diffSummary', { added: added.length, removed: removed.length, modified: modified.length }))}</div>`
+      + added.map(c => item('diff-added', '+', c)).join('')
+      + removed.map(c => item('diff-removed', '-', c)).join('')
+      + modified.map(c => item('diff-modified', '~', c)).join('');
   }
 
   // ============ AUTO BACKUP ============
   initAutoBackup() {
-    const settings = localStorage.getItem('cookieManagerAutoBackup');
-    if (settings) {
-      const { enabled, interval, lastBackup } = JSON.parse(settings);
-      this.autoBackupEnabled.checked = enabled;
-      this.backupInterval.value = interval;
-      this.autoBackupOptions.style.display = enabled ? 'block' : 'none';
-      if (lastBackup) this.lastBackupTime.textContent = `${t('lastBackup')} ${new Date(lastBackup).toLocaleString()}`;
-      if (enabled) this.checkAutoBackup();
-    }
+    const settings = readJson(LS.autoBackup, null);
+    if (!settings) return;
+    $('autoBackupEnabled').checked = Boolean(settings.enabled);
+    $('backupInterval').value = String(settings.interval || 24);
+    $('autoBackupOptions').hidden = !settings.enabled;
+    this.updateLastBackupLabel();
+    if (settings.enabled) this.checkAutoBackup();
+  }
+
+  updateLastBackupLabel() {
+    const last = Number(localStorage.getItem(LS.lastBackup));
+    $('lastBackupTime').textContent = last ? `${t('lastBackup')} ${new Date(last).toLocaleString()}` : t('neverBackedUp');
   }
 
   saveAutoBackupSettings() {
-    const settings = { enabled: this.autoBackupEnabled.checked, interval: parseInt(this.backupInterval.value), lastBackup: localStorage.getItem('cookieManagerLastBackup') || null };
-    localStorage.setItem('cookieManagerAutoBackup', JSON.stringify(settings));
+    const enabled = $('autoBackupEnabled').checked;
+    writeJson(LS.autoBackup, { enabled, interval: Number($('backupInterval').value) });
+    if (enabled) this.checkAutoBackup();
   }
 
   async checkAutoBackup() {
-    const settings = JSON.parse(localStorage.getItem('cookieManagerAutoBackup') || '{}');
+    const settings = readJson(LS.autoBackup, {});
     if (!settings.enabled) return;
-    const lastBackup = localStorage.getItem('cookieManagerLastBackup');
-    const now = Date.now();
-    const intervalMs = settings.interval * 60 * 60 * 1000;
-    if (!lastBackup || (now - parseInt(lastBackup)) > intervalMs) await this.performAutoBackup();
-  }
-
-  async performAutoBackup() {
-    const cookies = await browser.cookies.getAll({});
-    const exportData = { version: '3.0', exportDate: new Date().toISOString(), browser: 'Firefox', encrypted: false, autoBackup: true, cookies: cookies.map(c => this.cookieToExport(c)) };
-    this.downloadFile(JSON.stringify(exportData, null, 2), `auto_backup_${this.formatDate()}.json`);
-    const now = Date.now();
-    localStorage.setItem('cookieManagerLastBackup', now.toString());
-    this.lastBackupTime.textContent = `${t('lastBackup')} ${new Date(now).toLocaleString()}`;
+    const last = Number(localStorage.getItem(LS.lastBackup)) || 0;
+    if (Date.now() - last < settings.interval * 3600 * 1000) return;
+    const cookies = this.allCookies.length ? this.allCookies : await getAllCookiesEverywhere();
+    const data = { ...this.buildJsonExport(cookies), autoBackup: true };
+    downloadFile(JSON.stringify(data, null, 2), `cookie_backup_${formatDateStamp()}.json`);
+    localStorage.setItem(LS.lastBackup, String(Date.now()));
+    this.updateLastBackupLabel();
   }
 
   // ============ RULES ============
+  bindRuleEvents(on) {
+    on('addRuleBtn', 'click', () => this.addRule());
+    on('ruleMatchValue', 'keydown', (e) => { if (e.key === 'Enter') this.addRule(); });
+    on('ruleList', 'click', (e) => this.handleRuleClick(e));
+    on('ruleList', 'change', (e) => this.handleRuleToggle(e));
+    on('importRulesBtn', 'click', () => $('ruleFileInput').click());
+    on('ruleFileInput', 'change', (e) => { if (e.target.files[0]) this.importRulesFromFile(e.target.files[0]); e.target.value = ''; });
+    on('exportRulesBtn', 'click', () => this.exportRulesToFile());
+  }
+
   async loadRules() {
     try {
-      const data = await browser.storage.local.get('cookieRules');
-      this.rules = data.cookieRules || [];
-      this.renderRules();
+      const { cookieRules = [] } = await browser.storage.local.get('cookieRules');
+      this.rules = cookieRules;
     } catch (e) { this.rules = []; }
+    this.renderRules();
   }
 
   async saveRules() {
@@ -1348,181 +1585,122 @@ class CookieManager {
     this.renderRules();
   }
 
+  isValidRule(rule) {
+    return rule && ['domain', 'name', 'regex'].includes(rule.matchType) && typeof rule.matchValue === 'string'
+      && rule.matchValue.trim() !== '' && ['delete', 'protect'].includes(rule.action);
+  }
+
   async addRule() {
-    const matchType = this.ruleMatchType.value;
-    const matchValue = this.ruleMatchValue.value.trim();
-    if (!matchValue) return;
-
-    this.rules.push({
+    const rule = {
       id: Date.now(),
-      matchType,
-      matchValue,
-      action: this.ruleAction.value,
-      delay: parseInt(this.ruleDelay.value) || 0,
+      matchType: $('ruleMatchType').value,
+      matchValue: $('ruleMatchValue').value.trim(),
+      action: $('ruleAction').value,
+      delay: Math.max(0, parseInt($('ruleDelay').value, 10) || 0),
+      storeId: $('ruleContainer').value || undefined,
       enabled: true
-    });
-
+    };
+    if (!rule.matchValue) { this.toast(t('ruleValueRequired'), 'warning'); $('ruleMatchValue').focus(); return; }
+    if (rule.matchType === 'regex') {
+      try { new RegExp(rule.matchValue); } catch (e) { this.toast(t('regexInvalid'), 'error'); return; }
+    }
+    this.rules.push(rule);
     await this.saveRules();
-    this.ruleMatchValue.value = '';
-    this.ruleDelay.value = '0';
-    this.showMessage(t('ruleAdded'), 'success');
+    $('ruleMatchValue').value = '';
+    $('ruleDelay').value = '0';
+    this.toast(t('ruleAdded'));
+  }
+
+  describeRule(rule) {
+    const match = { domain: t('ruleMatchDomain'), name: t('ruleMatchName'), regex: t('ruleMatchRegex') }[rule.matchType];
+    const action = rule.action === 'delete' ? t('ruleActionDelete') : t('ruleActionProtect');
+    const delay = rule.delay ? ` (${t('after')} ${rule.delay} ${t('minutes')})` : '';
+    const store = rule.storeId ? ` · ${this.storeMeta(rule.storeId).name}` : '';
+    return { title: `${match} "${rule.matchValue}"`, meta: `→ ${action}${delay}${store}` };
   }
 
   renderRules() {
-    if (this.rules.length === 0) { this.ruleList.innerHTML = `<p class="empty-state">${t('noRules')}</p>`; return; }
-    this.ruleList.innerHTML = this.rules.map((r, i) => `
-      <div class="rule-item">
-        <div class="rule-item-info">
-          <div class="rule-item-match">${r.matchType}: "${this.escapeHtml(r.matchValue)}"</div>
-          <div class="rule-item-action">Action: ${r.action}${r.delay ? ` (${r.delay}min delay)` : ''}</div>
+    $('ruleList').innerHTML = this.rules.length ? this.rules.map((r, i) => {
+      const { title, meta } = this.describeRule(r);
+      return `<div class="item${r.enabled ? '' : ' disabled'}">
+        <div class="item-info"><div class="item-title">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div>
+        <div class="item-actions">
+          <label class="mini-switch" title="${escapeHtml(t('ruleEnabled'))}"><input type="checkbox" data-rule-toggle="${i}" ${r.enabled ? 'checked' : ''}><span class="switch"></span></label>
+          <button class="icon-btn sm" data-rule-delete="${i}" title="${escapeHtml(t('delete'))}">${icon('trash')}</button>
         </div>
-        <div class="rule-item-actions">
-          <input type="checkbox" class="rule-toggle" ${r.enabled ? 'checked' : ''} data-rule-toggle="${i}">
-          <button class="icon-btn tiny" data-rule-delete="${i}" title="Delete">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>`).join('');
+      </div>`;
+    }).join('') : this.emptyHtml('rules', t('noRules'), t('noRulesHint'));
+  }
 
-    this.ruleList.querySelectorAll('[data-rule-toggle]').forEach(input => {
-      input.addEventListener('change', async () => {
-        this.rules[parseInt(input.dataset.ruleToggle)].enabled = input.checked;
-        await this.saveRules();
-      });
-    });
-    this.ruleList.querySelectorAll('[data-rule-delete]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        this.rules.splice(parseInt(btn.dataset.ruleDelete), 1);
-        await this.saveRules();
-        this.showMessage(t('ruleDeleted'), 'success');
-      });
-    });
+  async handleRuleToggle(e) {
+    const input = e.target.closest('[data-rule-toggle]');
+    if (!input) return;
+    this.rules[Number(input.dataset.ruleToggle)].enabled = input.checked;
+    await this.saveRules();
+  }
+
+  async handleRuleClick(e) {
+    const btn = e.target.closest('[data-rule-delete]');
+    if (!btn) return;
+    this.rules.splice(Number(btn.dataset.ruleDelete), 1);
+    await this.saveRules();
+    this.toast(t('ruleDeleted'));
   }
 
   async importRulesFromFile(file) {
     try {
-      const content = await file.text();
-      const imported = JSON.parse(content);
-      if (Array.isArray(imported)) {
-        this.rules = this.rules.concat(imported);
-        await this.saveRules();
-        this.showMessage(`${imported.length} rules imported`, 'success');
-      }
-    } catch (e) { this.showMessage('Error: ' + e.message, 'error'); }
-    this.ruleFileInput.value = '';
+      const imported = JSON.parse(await file.text());
+      if (!Array.isArray(imported)) throw new Error(t('invalidFile'));
+      const valid = imported.filter(r => this.isValidRule(r)).map((r, i) => ({ ...r, id: Date.now() + i, enabled: r.enabled !== false }));
+      this.rules = this.rules.concat(valid);
+      await this.saveRules();
+      this.toast(t('rulesImported', { n: valid.length }));
+    } catch (e) {
+      this.toast(t('errorPrefix') + e.message, 'error');
+    }
   }
 
   exportRulesToFile() {
-    if (this.rules.length === 0) return;
-    this.downloadFile(JSON.stringify(this.rules, null, 2), `cookie_rules_${this.formatDate()}.json`);
+    if (!this.rules.length) { this.toast(t('noRules'), 'warning'); return; }
+    downloadFile(JSON.stringify(this.rules, null, 2), `cookie_rules_${formatDateStamp()}.json`, 'application/json');
   }
 
   // ============ HISTORY ============
   loadHistory() {
-    const saved = localStorage.getItem('cookieManagerHistory');
-    this.history = saved ? JSON.parse(saved) : [];
+    this.history = readJson(LS.history, []);
     this.renderHistory();
   }
 
   addHistoryEntry(action, detail) {
     this.history.unshift({ timestamp: Date.now(), action, detail });
     if (this.history.length > 200) this.history.length = 200;
-    localStorage.setItem('cookieManagerHistory', JSON.stringify(this.history));
+    writeJson(LS.history, this.history);
     this.renderHistory();
   }
 
   renderHistory() {
-    if (this.history.length === 0) { this.historyList.innerHTML = `<p class="empty-state">${t('noHistory')}</p>`; return; }
-    this.historyList.innerHTML = this.history.slice(0, 50).map(h => {
-      const time = new Date(h.timestamp).toLocaleString();
-      return `<div class="history-item">
-        <span class="history-time">${time}</span>
-        <span class="history-action-badge ${h.action}">${h.action}</span>
-        <span class="history-detail">${this.escapeHtml(h.detail)}</span>
-      </div>`;
-    }).join('');
+    const labels = {
+      delete: t('historyDelete'), import: t('historyImport'), export: t('historyExport'), edit: t('historyEdit'),
+      protect: t('historyProtect'), unprotect: t('historyUnprotect'), clean: t('historyClean')
+    };
+    $('historyList').innerHTML = this.history.length ? this.history.slice(0, 80).map(h => `
+      <div class="event">
+        <span class="pill ${escapeHtml(h.action)}">${escapeHtml(labels[h.action] || h.action)}</span>
+        <div class="event-info"><div class="event-name">${escapeHtml(h.detail)}</div><div class="event-domain">${escapeHtml(new Date(h.timestamp).toLocaleString())}</div></div>
+      </div>`).join('') : this.emptyHtml('clock', t('noHistory'), t('noHistoryHint'));
+    $('undoBtn').disabled = this.undoStack.length === 0;
   }
 
-  // ============ UNDO ============
-  async undoLastAction() {
-    if (this.undoStack.length === 0) { this.showMessage(t('noUndoAvailable'), 'warning'); return; }
-    const action = this.undoStack.pop();
-
-    if (action.type === 'delete' && action.cookie) {
-      await browser.runtime.sendMessage({ action: 'importCookies', cookies: [action.cookie] });
-    } else if (action.type === 'bulkDelete' && action.cookies) {
-      await browser.runtime.sendMessage({ action: 'importCookies', cookies: action.cookies });
-    }
-
-    this.showMessage(t('undoSuccess'), 'success');
-    this.refreshCookieList();
-  }
-
-  // ============ ENCRYPTION ============
-  async encrypt(data, password) {
-    const enc = new TextEncoder();
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
-    const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
-    combined.set(salt, 0);
-    combined.set(iv, salt.length);
-    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-    return btoa(String.fromCharCode(...combined));
-  }
-
-  async decrypt(encryptedData, password) {
-    const enc = new TextEncoder();
-    const dec = new TextDecoder();
-    const combined = new Uint8Array(atob(encryptedData).split('').map(c => c.charCodeAt(0)));
-    const salt = combined.slice(0, 16);
-    const iv = combined.slice(16, 28);
-    const data = combined.slice(28);
-    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-    return JSON.parse(dec.decode(decrypted));
-  }
-
-  // ============ UTILITIES ============
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
-
-  async copyToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      this.showMessage(t('copiedToClipboard'), 'success');
-    } catch (e) {
-      // Fallback
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      this.showMessage(t('copiedToClipboard'), 'success');
-    }
-  }
-
-  downloadFile(content, fileName) {
-    const blob = new Blob([content], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  formatDate() {
-    const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  async clearHistory() {
+    if (!this.history.length) return;
+    if (!(await this.confirmDialog(t('confirmClearHistory'), t('monitorClear')))) return;
+    this.history = [];
+    writeJson(LS.history, this.history);
+    this.renderHistory();
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => new CookieManager());
+document.addEventListener('DOMContentLoaded', () => {
+  const app = new CookieManager();
+  app.init().catch(e => console.error('[CookieManager] init failed', e));
+});

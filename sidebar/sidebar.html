@@ -4,538 +4,487 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cookie Manager Pro</title>
+  <link rel="icon" href="../icons/icon-48.png">
   <link rel="stylesheet" href="sidebar.css">
 </head>
-<body class="dark">
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <div class="logo">
-        <h1>Cookie Manager <span class="version-badge">v3</span></h1>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><circle cx="8.5" cy="8.5" r=".8" fill="currentColor"/><circle cx="15.5" cy="15.5" r=".8" fill="currentColor"/><circle cx="12" cy="12" r=".8" fill="currentColor"/><circle cx="8" cy="15" r=".8" fill="currentColor"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+    <symbol id="i-rules" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="../icons/icon-96.png" alt="" width="30" height="30">
+        <span class="brand-name">Cookie Manager <b>Pro</b></span>
       </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeToggle" data-i18n-title="toggleTheme">
+          <svg class="ic icon-sun"><use href="#i-sun"/></svg><svg class="ic icon-moon"><use href="#i-moon"/></svg>
         </button>
-        <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
-          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
+        <button class="icon-btn" id="settingsBtn" data-i18n-title="settings"><svg class="ic"><use href="#i-gear"/></svg></button>
       </div>
     </header>
 
-    <!-- Tabs - 2 rows for all tabs -->
-    <div class="tabs-wrapper">
-      <div class="tabs">
-        <button class="tab active" data-tab="cookies" aria-label="Cookies">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="9" r="1" fill="currentColor"/><circle cx="15" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="15" r="1" fill="currentColor"/></svg>
-          <span>Cookies</span>
-        </button>
-        <button class="tab" data-tab="dashboard" aria-label="Dashboard">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          <span>Dashboard</span>
-        </button>
-        <button class="tab" data-tab="monitor" aria-label="Monitor">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-          <span>Monitor</span>
-        </button>
-        <button class="tab" data-tab="export" aria-label="Export">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Export</span>
-        </button>
-      </div>
-      <div class="tabs">
-        <button class="tab" data-tab="import" aria-label="Import">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span>Import</span>
-        </button>
-        <button class="tab" data-tab="profiles" aria-label="Profiles">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/></svg>
-          <span>Profiles</span>
-        </button>
-        <button class="tab" data-tab="rules" aria-label="Rules">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-          <span>Rules</span>
-        </button>
-        <button class="tab" data-tab="history" aria-label="History">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-          <span>History</span>
-        </button>
-      </div>
-    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="cookies"><svg class="ic"><use href="#i-cookie"/></svg><span data-i18n="tabCookies">Cookies</span></button>
+      <button class="tab" role="tab" data-tab="dashboard"><svg class="ic"><use href="#i-chart"/></svg><span data-i18n="tabOverview">Overview</span></button>
+      <button class="tab" role="tab" data-tab="monitor"><svg class="ic"><use href="#i-pulse"/></svg><span data-i18n="tabLive">Live</span></button>
+      <button class="tab" role="tab" data-tab="backup"><svg class="ic"><use href="#i-archive"/></svg><span data-i18n="tabBackup">Backup</span></button>
+      <button class="tab" role="tab" data-tab="rules"><svg class="ic"><use href="#i-rules"/></svg><span data-i18n="tabRules">Rules</span></button>
+      <button class="tab" role="tab" data-tab="history"><svg class="ic"><use href="#i-clock"/></svg><span data-i18n="tabHistory">History</span></button>
+    </nav>
 
-    <!-- Messages -->
-    <div class="message" id="message" role="alert"></div>
-
-    <!-- ============ COOKIES TAB ============ -->
-    <div class="tab-content active" id="cookies-tab">
-      <!-- Search with regex toggle -->
-      <div class="search-box">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="cookieSearch" class="input" placeholder="Search cookies..." aria-label="Search cookies">
-        <button class="icon-btn small" id="regexToggle" title="Toggle regex search" aria-label="Toggle regex">
-          <span style="font-size:11px;font-weight:bold">.*</span>
-        </button>
-      </div>
-
-      <!-- Filters row -->
-      <div class="filters-row">
-        <select id="domainFilter" class="select small" aria-label="Domain filter">
-          <option value="">All domains</option>
-        </select>
-        <select id="containerFilter" class="select small" aria-label="Container filter">
-          <option value="">All containers</option>
-        </select>
-      </div>
-
-      <!-- Badge filters -->
-      <div class="badge-filters" id="badgeFilters">
-        <button class="badge-filter" data-filter="secure">Secure</button>
-        <button class="badge-filter" data-filter="httpOnly">HttpOnly</button>
-        <button class="badge-filter" data-filter="session">Session</button>
-        <button class="badge-filter" data-filter="tracker">Tracker</button>
-        <button class="badge-filter" data-filter="protected">Protected</button>
-      </div>
-
-      <!-- Sort and view controls -->
-      <div class="controls-row">
-        <div class="sort-controls">
-          <select id="sortBy" class="select tiny" aria-label="Sort by">
-            <option value="name">Name</option>
-            <option value="domain">Domain</option>
-            <option value="expiry">Expiry</option>
-            <option value="size">Size</option>
-          </select>
-          <button class="icon-btn tiny" id="sortDirection" title="Sort direction" aria-label="Sort direction">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
-          </button>
-        </div>
-        <div class="view-controls">
-          <button class="icon-btn tiny" id="compactViewBtn" title="Compact view" aria-label="Compact view">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <button class="icon-btn tiny active" id="detailedViewBtn" title="Detailed view" aria-label="Detailed view">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="5" rx="1"/><rect x="3" y="11" width="18" height="5" rx="1"/><rect x="3" y="19" width="18" height="2" rx="1"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Cookie Stats Bar -->
-      <div class="cookie-stats-bar">
-        <label class="select-all-label">
-          <input type="checkbox" id="selectAllCheckbox" aria-label="Select all">
-          <span id="cookieCountDisplay">0 cookies</span>
-        </label>
-        <div class="cookie-actions-bar">
-          <button class="btn-text" id="addCookieBtn" title="Add cookie">+ Add</button>
-          <button class="btn-text danger" id="deleteSelected" title="Delete selected" style="display:none">Delete</button>
-          <button class="btn-text" id="exportSelectedBtn" title="Export selected" style="display:none">Export</button>
-          <button class="btn-text danger" id="deleteAllVisible">Delete All</button>
-        </div>
-      </div>
-
-      <!-- Cookie List (virtual scroll container) -->
-      <div class="cookie-list" id="cookieList" tabindex="0" role="listbox" aria-label="Cookie list">
-        <div class="loading-inline">Loading...</div>
-      </div>
-
-      <!-- Cleaning buttons -->
-      <div class="clean-actions">
-        <button class="btn-clean" id="cleanTrackersBtn" title="Clean tracker cookies">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          Trackers
-        </button>
-        <button class="btn-clean" id="cleanExpiredBtn" title="Clean expired cookies">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          Expired
-        </button>
-        <button class="icon-btn small" id="refreshCookies" title="Refresh" aria-label="Refresh">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- ============ DASHBOARD TAB ============ -->
-    <div class="tab-content" id="dashboard-tab">
-      <!-- Stats cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-num" id="dashTotalCookies">0</span>
-          <span class="stat-label">Total</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num tracker" id="dashTrackerCount">0</span>
-          <span class="stat-label">Trackers</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num secure" id="dashSecureCount">0</span>
-          <span class="stat-label">Secure</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num" id="dashSessionCount">0</span>
-          <span class="stat-label">Session</span>
-        </div>
-      </div>
-
-      <!-- Privacy Score -->
-      <section class="card">
-        <h2>Privacy Score</h2>
-        <div class="privacy-score-container">
-          <svg class="privacy-ring" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="10"/>
-            <circle id="privacyRing" cx="60" cy="60" r="52" fill="none" stroke="var(--success)" stroke-width="10" stroke-dasharray="326.73" stroke-dashoffset="326.73" stroke-linecap="round" transform="rotate(-90 60 60)"/>
-            <text x="60" y="60" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="28" font-weight="700" id="privacyScoreText">0%</text>
-          </svg>
-          <div class="privacy-details">
-            <div class="privacy-detail"><span class="dot good"></span> Secure: <strong id="dashSecurePct">0%</strong></div>
-            <div class="privacy-detail"><span class="dot good"></span> HttpOnly: <strong id="dashHttpOnlyPct">0%</strong></div>
-            <div class="privacy-detail"><span class="dot bad"></span> Trackers: <strong id="dashTrackerPct">0%</strong></div>
+    <main class="content">
+      <!-- ============ COOKIES ============ -->
+      <section class="panel active" id="cookies-tab" role="tabpanel">
+        <div class="site-card" id="siteCard" hidden>
+          <div class="site-card-info">
+            <span class="site-favicon"><svg class="ic"><use href="#i-globe"/></svg></span>
+            <div class="site-card-text">
+              <div class="site-card-label" data-i18n="currentSite">Current site</div>
+              <div class="site-card-host" id="siteHost">-</div>
+            </div>
+            <span class="site-count" id="siteCount" data-i18n-title="cookies">0</span>
+          </div>
+          <div class="site-card-actions">
+            <button class="btn btn-soft btn-sm" id="siteOnlyBtn" aria-pressed="false" data-i18n="showThisSite">Show only this site</button>
+            <button class="btn btn-ghost-danger btn-sm" id="siteClearBtn"><svg class="ic"><use href="#i-trash"/></svg><span data-i18n="clearSite">Clear site</span></button>
           </div>
         </div>
-      </section>
 
-      <!-- Size info -->
-      <section class="card">
-        <h2>Estimated Size</h2>
-        <div class="size-bar-container">
-          <div class="size-bar" id="sizeBar"></div>
+        <div class="search-box">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="search" id="cookieSearch" data-i18n-placeholder="searchCookies" placeholder="Search name, domain or value">
+          <button class="chip-toggle" id="regexToggle" aria-pressed="false" data-i18n-title="regexHint">.*</button>
         </div>
-        <p class="hint" id="sizeText">0 KB</p>
-      </section>
 
-      <!-- Top domains (pure CSS/SVG bar chart) -->
-      <section class="card">
-        <h2>Top 10 Domains</h2>
-        <div class="bar-chart" id="topDomainsChart"></div>
-      </section>
-
-      <!-- Cookie types pie (pure SVG) -->
-      <section class="card">
-        <h2>Cookies by Type</h2>
-        <div class="pie-chart-container">
-          <svg class="pie-chart" viewBox="0 0 200 200" id="typePieChart"></svg>
-          <div class="pie-legend" id="typePieLegend"></div>
+        <div class="filter-row">
+          <select id="containerFilter" class="select" data-i18n-title="container"></select>
+          <select id="domainFilter" class="select" data-i18n-title="domain"></select>
         </div>
-      </section>
-    </div>
 
-    <!-- ============ MONITOR TAB ============ -->
-    <div class="tab-content" id="monitor-tab">
-      <div class="monitor-header">
-        <div class="monitor-live-badge" id="monitorLiveBadge">
-          <span class="live-dot"></span> LIVE
+        <div class="chips" id="badgeFilters">
+          <button class="chip" data-filter="secure" data-i18n="filterSecure" data-i18n-title="hintSecure">Secure</button>
+          <button class="chip" data-filter="httpOnly" data-i18n="filterHttpOnly" data-i18n-title="hintHttpOnly">HttpOnly</button>
+          <button class="chip" data-filter="session" data-i18n="filterSession" data-i18n-title="hintSession">Session</button>
+          <button class="chip" data-filter="tracker" data-i18n="filterTracker" data-i18n-title="hintTracker">Tracker</button>
+          <button class="chip" data-filter="protected" data-i18n="filterProtected" data-i18n-title="hintProtected">Protected</button>
         </div>
-        <div class="monitor-actions">
-          <button class="btn-text" id="monitorPauseBtn">Pause</button>
-          <button class="btn-text danger" id="monitorClearBtn">Clear</button>
-        </div>
-      </div>
 
-      <!-- Session counter -->
-      <div class="stats-grid compact">
-        <div class="stat-card mini">
-          <span class="stat-num success" id="monitorCreated">0</span>
-          <span class="stat-label">Created</span>
-        </div>
-        <div class="stat-card mini">
-          <span class="stat-num failed" id="monitorDeleted">0</span>
-          <span class="stat-label">Deleted</span>
-        </div>
-        <div class="stat-card mini">
-          <span class="stat-num" id="monitorUpdated">0</span>
-          <span class="stat-label">Updated</span>
-        </div>
-      </div>
-
-      <!-- Monitor filter -->
-      <div class="monitor-filter">
-        <button class="badge-filter active" data-monitor-filter="all">All</button>
-        <button class="badge-filter" data-monitor-filter="created">Created</button>
-        <button class="badge-filter" data-monitor-filter="deleted">Deleted</button>
-      </div>
-
-      <!-- Monitor log -->
-      <div class="monitor-log" id="monitorLog" role="log" aria-label="Cookie changes log">
-        <div class="empty-state">Waiting for cookie changes...</div>
-      </div>
-    </div>
-
-    <!-- ============ EXPORT TAB ============ -->
-    <div class="tab-content" id="export-tab">
-      <section class="card">
-        <h2>Security</h2>
-        <div class="toggle-row">
-          <label class="toggle"><input type="checkbox" id="encryptExport"><span class="slider"></span></label>
-          <span>AES-256 Encryption</span>
-        </div>
-        <input type="password" id="exportPassword" class="input" placeholder="Password (min 4 chars)" style="display:none;">
-      </section>
-
-      <section class="card">
-        <h2>Format</h2>
-        <div class="radio-group">
-          <label class="radio-row"><input type="radio" name="exportFormat" value="json" checked><span class="radio-mark"></span> JSON (Cookie Manager)</label>
-          <label class="radio-row"><input type="radio" name="exportFormat" value="netscape"><span class="radio-mark"></span> Netscape (cookies.txt)</label>
-          <label class="radio-row"><input type="radio" name="exportFormat" value="csv"><span class="radio-mark"></span> CSV (Spreadsheet)</label>
-          <label class="radio-row"><input type="radio" name="exportFormat" value="har"><span class="radio-mark"></span> HAR (HTTP Archive)</label>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Filter</h2>
-        <label class="checkbox-row"><input type="checkbox" id="filterCurrentSite"><span class="check"></span> Current site only</label>
-        <input type="text" id="currentDomain" class="input" readonly style="display:none;">
-        <label class="checkbox-row"><input type="checkbox" id="filterCustomDomain"><span class="check"></span> Custom domain</label>
-        <input type="text" id="customDomain" class="input" placeholder="example.com" style="display:none;">
-        <label class="checkbox-row"><input type="checkbox" id="excludeTrackers"><span class="check"></span> Exclude known trackers</label>
-      </section>
-
-      <section class="stats">
-        <div class="stat"><span class="stat-num" id="totalCookies">0</span><span class="stat-label">Total</span></div>
-        <div class="stat"><span class="stat-num" id="selectedCookies">0</span><span class="stat-label">Selected</span></div>
-      </section>
-
-      <button class="btn btn-primary" id="exportBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export Cookies
-      </button>
-      <button class="btn btn-secondary" id="copyClipboardBtn" style="margin-top:8px">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copy to Clipboard
-      </button>
-      <p class="shortcut-hint">Ctrl+Shift+E</p>
-    </div>
-
-    <!-- ============ IMPORT TAB ============ -->
-    <div class="tab-content" id="import-tab">
-      <section class="card">
-        <h2>Encrypted file?</h2>
-        <div class="toggle-row">
-          <label class="toggle"><input type="checkbox" id="encryptImport"><span class="slider"></span></label>
-          <span>File is encrypted</span>
-        </div>
-        <input type="password" id="importPassword" class="input" placeholder="Decryption password" style="display:none;">
-      </section>
-
-      <section class="card">
-        <h2>Options</h2>
-        <label class="checkbox-row"><input type="checkbox" id="overwriteExisting" checked><span class="check"></span> Overwrite existing cookies</label>
-        <label class="checkbox-row"><input type="checkbox" id="previewBeforeImport"><span class="check"></span> Preview before import</label>
-      </section>
-
-      <section class="card dropzone" id="dropzone">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <p>Drop file here</p>
-        <span>or click to select</span>
-        <input type="file" id="fileInput" accept=".json,.cookiejar,.txt,.csv,.har">
-      </section>
-
-      <section class="card preview-panel" id="previewPanel" style="display:none;">
-        <h2>Preview</h2>
-        <div class="preview-stats"><span id="previewCount">0 cookies</span><span id="previewDomains">0 domains</span></div>
-        <div class="preview-list" id="previewList"></div>
-        <div class="preview-actions">
-          <button class="btn btn-secondary" id="cancelImport">Cancel</button>
-          <button class="btn btn-primary" id="confirmImport">Import</button>
-        </div>
-      </section>
-
-      <div class="loading" id="loading"><div class="spinner"></div><p>Importing...</p></div>
-
-      <section class="stats" id="importStats" style="display:none;">
-        <div class="stat"><span class="stat-num success" id="importedCount">0</span><span class="stat-label">Imported</span></div>
-        <div class="stat"><span class="stat-num failed" id="failedCount">0</span><span class="stat-label">Failed</span></div>
-      </section>
-    </div>
-
-    <!-- ============ PROFILES TAB ============ -->
-    <div class="tab-content" id="profiles-tab">
-      <section class="card">
-        <h2>Save Current Profile</h2>
-        <div class="profile-save-row">
-          <input type="text" id="profileName" class="input" placeholder="Profile name...">
-          <button class="btn btn-primary small" id="saveProfileBtn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
-          </button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Saved Profiles</h2>
-        <div class="profile-list" id="profileList"><p class="empty-state">No profiles saved yet</p></div>
-      </section>
-
-      <!-- Profile Comparison -->
-      <section class="card">
-        <h2>Compare Profiles</h2>
-        <div class="compare-row">
-          <select id="compareProfile1" class="select small" aria-label="Profile 1"><option value="">Profile 1</option></select>
-          <span class="compare-vs">vs</span>
-          <select id="compareProfile2" class="select small" aria-label="Profile 2"><option value="">Profile 2</option></select>
-        </div>
-        <button class="btn btn-secondary small" id="compareBtn" style="margin-top:8px">Compare</button>
-        <div class="diff-results" id="diffResults" style="display:none"></div>
-      </section>
-
-      <!-- Auto Backup -->
-      <section class="card">
-        <h2>Auto Backup</h2>
-        <div class="toggle-row">
-          <label class="toggle"><input type="checkbox" id="autoBackupEnabled"><span class="slider"></span></label>
-          <span>Enable auto backup</span>
-        </div>
-        <div class="auto-backup-options" id="autoBackupOptions" style="display:none;">
-          <select id="backupInterval" class="select">
-            <option value="1">Every hour</option>
-            <option value="6">Every 6 hours</option>
-            <option value="24" selected>Every day</option>
-            <option value="168">Every week</option>
-          </select>
-          <p class="hint" id="lastBackupTime">Never backed up</p>
-        </div>
-      </section>
-    </div>
-
-    <!-- ============ RULES TAB ============ -->
-    <div class="tab-content" id="rules-tab">
-      <section class="card">
-        <h2>Add Rule</h2>
-        <div class="rule-form">
-          <select id="ruleMatchType" class="select small">
-            <option value="domain">Domain contains</option>
-            <option value="name">Name contains</option>
-            <option value="regex">Regex match</option>
-          </select>
-          <input type="text" id="ruleMatchValue" class="input" placeholder="Match value...">
-          <div class="rule-action-row">
-            <select id="ruleAction" class="select small">
-              <option value="delete">Delete</option>
-              <option value="protect">Protect</option>
+        <div class="list-toolbar">
+          <label class="check-inline">
+            <input type="checkbox" id="selectAllCheckbox" data-i18n-title="selectAll">
+            <span id="cookieCountDisplay">0</span>
+          </label>
+          <div class="toolbar-right">
+            <select id="sortBy" class="select select-sm" data-i18n-title="sortBy">
+              <option value="domain" data-i18n="sortByDomain">Domain</option>
+              <option value="name" data-i18n="sortByName">Name</option>
+              <option value="expiry" data-i18n="sortByExpiry">Expiry</option>
+              <option value="size" data-i18n="sortBySize">Size</option>
             </select>
-            <input type="number" id="ruleDelay" class="input small" placeholder="Delay (min)" min="0" value="0">
+            <button class="icon-btn sm" id="sortDirection" data-i18n-title="sortDirection"><svg class="ic"><use href="#i-sort"/></svg></button>
+            <button class="icon-btn sm" id="compactToggle" aria-pressed="false" data-i18n-title="compactView">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <button class="icon-btn sm" id="refreshCookies" data-i18n-title="refresh"><svg class="ic"><use href="#i-refresh"/></svg></button>
           </div>
-          <button class="btn btn-primary small" id="addRuleBtn">Add Rule</button>
+        </div>
+
+        <div class="selection-bar" id="selectionBar" hidden>
+          <span id="selectionCount"></span>
+          <div class="row-gap">
+            <button class="btn btn-soft btn-sm" id="exportSelectedBtn"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="export">Export</span></button>
+            <button class="btn btn-danger btn-sm" id="deleteSelected"><svg class="ic"><use href="#i-trash"/></svg><span data-i18n="delete">Delete</span></button>
+          </div>
+        </div>
+
+        <div class="cookie-list" id="cookieList" tabindex="0" role="listbox" aria-multiselectable="true"></div>
+
+        <div class="bottom-actions">
+          <button class="btn btn-primary btn-sm" id="addCookieBtn"><svg class="ic"><use href="#i-plus"/></svg><span data-i18n="addCookie">Add cookie</span></button>
+          <button class="btn btn-soft btn-sm" id="cleanTrackersBtn" data-i18n-title="hintCleanTrackers"><svg class="ic"><use href="#i-sparkle"/></svg><span data-i18n="cleanTrackersShort">Clean trackers</span></button>
+          <button class="btn btn-ghost-danger btn-sm" id="deleteAllVisible" data-i18n-title="hintDeleteVisible"><svg class="ic"><use href="#i-trash"/></svg><span data-i18n="deleteVisible">Delete shown</span></button>
         </div>
       </section>
-
-      <section class="card">
-        <h2>Active Rules</h2>
-        <div class="rule-list" id="ruleList"><p class="empty-state">No rules configured</p></div>
-      </section>
-
-      <div class="rule-io-actions">
-        <button class="btn-text" id="importRulesBtn">Import Rules</button>
-        <button class="btn-text" id="exportRulesBtn">Export Rules</button>
-        <input type="file" id="ruleFileInput" accept=".json" style="display:none">
-      </div>
-    </div>
-
-    <!-- ============ HISTORY TAB ============ -->
-    <div class="tab-content" id="history-tab">
-      <div class="history-header">
-        <h2>Action History</h2>
-        <button class="btn-text" id="undoBtn" title="Undo last action">Undo</button>
-      </div>
-      <div class="history-list" id="historyList">
-        <p class="empty-state">No actions recorded</p>
-      </div>
-    </div>
-
-    <!-- ============ SETTINGS MODAL ============ -->
-    <div class="modal" id="settingsModal" role="dialog" aria-label="Settings">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Settings</h2>
-          <button class="icon-btn" id="closeSettings" aria-label="Close settings">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+      <!-- ============ OVERVIEW ============ -->
+      <section class="panel" id="dashboard-tab" role="tabpanel">
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-num" id="dashTotalCookies">0</span><span class="stat-label" data-i18n="total">Total</span></div>
+          <div class="stat-card"><span class="stat-num tone-danger" id="dashTrackerCount">0</span><span class="stat-label" data-i18n="trackerCookies">Trackers</span></div>
+          <div class="stat-card"><span class="stat-num tone-info" id="dashSecureCount">0</span><span class="stat-label" data-i18n="secureCookies">Secure</span></div>
+          <div class="stat-card"><span class="stat-num" id="dashDomainCount">0</span><span class="stat-label" data-i18n="sites">Sites</span></div>
         </div>
-        <div class="modal-body">
-          <div class="setting-row">
-            <span>Language</span>
-            <select id="languageSelect" class="select"></select>
-          </div>
-          <div class="setting-row column">
-            <span>Tracker domains (one per line)</span>
-            <textarea id="trackerList" class="textarea" placeholder="google-analytics.com&#10;facebook.com"></textarea>
-          </div>
-          <div class="setting-section">
-            <h3>Keyboard Shortcuts</h3>
-            <div class="shortcut-list">
-              <div class="shortcut-item"><kbd>Ctrl+Shift+E</kbd><span>Quick Export</span></div>
-              <div class="shortcut-item"><kbd>Ctrl+Shift+I</kbd><span>Open Sidebar</span></div>
-              <div class="shortcut-item"><kbd>Del</kbd><span>Delete Selected</span></div>
-              <div class="shortcut-item"><kbd>Ctrl+A</kbd><span>Select All</span></div>
-              <div class="shortcut-item"><kbd>Ctrl+C</kbd><span>Copy Value</span></div>
-              <div class="shortcut-item"><kbd>Ctrl+Z</kbd><span>Undo</span></div>
+
+        <div class="card">
+          <h2 class="card-title" data-i18n="privacyScore">Privacy score</h2>
+          <div class="score">
+            <svg class="score-ring" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" class="score-track"/>
+              <circle id="privacyRing" cx="60" cy="60" r="52" class="score-value" stroke-dasharray="326.73" stroke-dashoffset="326.73" transform="rotate(-90 60 60)"/>
+              <text x="60" y="60" text-anchor="middle" dominant-baseline="central" id="privacyScoreText">0</text>
+            </svg>
+            <div class="score-text">
+              <div class="score-verdict" id="privacyVerdict"></div>
+              <p class="hint" data-i18n="privacyExplain">Based on how many cookies are secure, hidden from scripts, and not from trackers.</p>
+              <button class="btn btn-soft btn-sm" id="dashCleanTrackers" hidden><svg class="ic"><use href="#i-sparkle"/></svg><span id="dashCleanLabel"></span></button>
             </div>
           </div>
-          <div class="setting-section">
-            <h3>About</h3>
-            <p class="about-text">Cookie Manager Pro v3.0</p>
-            <p class="about-text">Made by <a href="https://github.com/0XLUC4" target="_blank" rel="noopener">0XLUC4</a></p>
-            <p class="about-text">100% offline - zero data collection</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title" data-i18n="cookiesByType">Cookies by type</h2>
+          <div class="meter-list" id="typeMeters"></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title" data-i18n="byContainer">By container</h2>
+          <div class="meter-list" id="containerMeters"></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title" data-i18n="topDomains">Top sites</h2>
+          <p class="hint" data-i18n="topDomainsHint">Click a site to see its cookies.</p>
+          <div class="meter-list" id="topDomainsChart"></div>
+        </div>
+        <p class="hint center" id="sizeText"></p>
+      </section>
+
+      <!-- ============ LIVE MONITOR ============ -->
+      <section class="panel" id="monitor-tab" role="tabpanel">
+        <div class="section-head">
+          <div class="live-badge" id="monitorLiveBadge"><span class="live-dot"></span><span data-i18n="monitorLive">LIVE</span></div>
+          <div class="row-gap">
+            <button class="btn btn-soft btn-sm" id="monitorPauseBtn" data-i18n="monitorPause">Pause</button>
+            <button class="btn btn-ghost-danger btn-sm" id="monitorClearBtn" data-i18n="monitorClear">Clear</button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- ============ COOKIE EDIT/CREATE MODAL ============ -->
-    <div class="modal" id="cookieEditModal" role="dialog" aria-label="Edit cookie">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="cookieModalTitle">Edit Cookie</h2>
-          <button class="icon-btn" id="closeCookieEdit" aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+        <p class="hint" data-i18n="monitorExplain">Every cookie created, changed or deleted by websites appears here in real time.</p>
+        <div class="stats-grid three">
+          <div class="stat-card"><span class="stat-num tone-success" id="monitorCreated">0</span><span class="stat-label" data-i18n="eventCreated">Created</span></div>
+          <div class="stat-card"><span class="stat-num tone-info" id="monitorUpdated">0</span><span class="stat-label" data-i18n="eventUpdated">Updated</span></div>
+          <div class="stat-card"><span class="stat-num tone-danger" id="monitorDeleted">0</span><span class="stat-label" data-i18n="eventDeleted">Deleted</span></div>
         </div>
-        <div class="modal-body">
-          <label class="form-label">Name</label>
-          <input type="text" id="editCookieName" class="input">
+        <div class="search-box">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="search" id="monitorSearch" data-i18n-placeholder="filterEvents" placeholder="Filter events">
+        </div>
+        <div class="chips">
+          <button class="chip active" data-monitor-filter="all" data-i18n="monitorFilterAll">All</button>
+          <button class="chip" data-monitor-filter="created" data-i18n="eventCreated">Created</button>
+          <button class="chip" data-monitor-filter="updated" data-i18n="eventUpdated">Updated</button>
+          <button class="chip" data-monitor-filter="deleted" data-i18n="eventDeleted">Deleted</button>
+        </div>
+        <div class="event-list" id="monitorLog" role="log"></div>
+      </section>
+      <!-- ============ BACKUP (export / import / profiles) ============ -->
+      <section class="panel" id="backup-tab" role="tabpanel">
+        <div class="segmented" role="tablist">
+          <button class="seg active" data-sub="export"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="tabExport">Export</span></button>
+          <button class="seg" data-sub="import"><svg class="ic"><use href="#i-upload"/></svg><span data-i18n="tabImport">Import</span></button>
+          <button class="seg" data-sub="profiles"><svg class="ic"><use href="#i-archive"/></svg><span data-i18n="tabProfiles">Profiles</span></button>
+        </div>
 
-          <label class="form-label">Value</label>
-          <div class="value-row">
-            <textarea id="editCookieValue" class="textarea"></textarea>
-            <button class="icon-btn tiny" id="copyEditValue" title="Copy value" aria-label="Copy value">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
+        <div class="subpanel active" id="sub-export">
+          <div class="card">
+            <h2 class="card-title" data-i18n="whatToExport">What to export</h2>
+            <div class="radio-group">
+              <label class="radio"><input type="radio" name="exportScope" value="all" checked><span class="radio-dot"></span><span data-i18n="scopeAll">All cookies</span></label>
+              <label class="radio"><input type="radio" name="exportScope" value="site"><span class="radio-dot"></span><span data-i18n="currentSiteOnly">Current site only</span><em class="muted" id="exportSiteName"></em></label>
+              <label class="radio"><input type="radio" name="exportScope" value="custom"><span class="radio-dot"></span><span data-i18n="customDomain">Custom domain</span></label>
+            </div>
+            <input type="text" id="customDomain" class="input" placeholder="example.com" hidden>
+            <label class="field-label" for="exportContainer" data-i18n="container">Container</label>
+            <select id="exportContainer" class="select"></select>
+            <label class="switch-row"><input type="checkbox" id="excludeTrackers"><span class="switch"></span><span data-i18n="excludeTrackers">Exclude known trackers</span></label>
+          </div>
+          <div class="card">
+            <h2 class="card-title" data-i18n="format">Format</h2>
+            <div class="radio-group">
+              <label class="radio"><input type="radio" name="exportFormat" value="json" checked><span class="radio-dot"></span><span>JSON</span><em class="muted" data-i18n="formatJsonHint">best to re-import here</em></label>
+              <label class="radio"><input type="radio" name="exportFormat" value="netscape"><span class="radio-dot"></span><span>Netscape</span><em class="muted">cookies.txt, curl, yt-dlp</em></label>
+              <label class="radio"><input type="radio" name="exportFormat" value="csv"><span class="radio-dot"></span><span>CSV</span><em class="muted" data-i18n="formatCsvHint">spreadsheet</em></label>
+              <label class="radio"><input type="radio" name="exportFormat" value="har"><span class="radio-dot"></span><span>HAR</span><em class="muted">HTTP Archive</em></label>
+            </div>
           </div>
 
-          <label class="form-label">Domain</label>
-          <input type="text" id="editCookieDomain" class="input">
+          <div class="card">
+            <h2 class="card-title" data-i18n="security">Security</h2>
+            <label class="switch-row"><input type="checkbox" id="encryptExport"><span class="switch"></span><span data-i18n="aesEncryption">Protect with a password (AES-256)</span></label>
+            <p class="hint" id="encryptHint" data-i18n="encryptJsonOnly">Password protection is only available for JSON.</p>
+            <input type="password" id="exportPassword" class="input" data-i18n-placeholder="passwordPlaceholder" placeholder="Password (min 4 characters)" hidden autocomplete="new-password">
+          </div>
 
-          <label class="form-label">Path</label>
-          <input type="text" id="editCookiePath" class="input">
+          <div class="export-summary"><span data-i18n="readyToExport">Ready to export</span> <b id="selectedCookies">0</b> / <span id="totalCookies">0</span></div>
+          <button class="btn btn-primary btn-block" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="exportCookies">Export cookies</span></button>
+          <button class="btn btn-soft btn-block mt" id="copyClipboardBtn"><svg class="ic"><use href="#i-copy"/></svg><span data-i18n="copyToClipboard">Copy as JSON</span></button>
+        </div>
+        <div class="subpanel" id="sub-import">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button">
+            <svg class="ic ic-xl"><use href="#i-upload"/></svg>
+            <p data-i18n="dropFileHere">Drop a cookie file here</p>
+            <span class="muted" data-i18n="orClickToSelect">or click to choose (JSON, cookies.txt, CSV, HAR)</span>
+            <input type="file" id="fileInput" accept=".json,.cookiejar,.txt,.csv,.har" hidden>
+          </div>
 
-          <label class="form-label">Expiration</label>
-          <input type="datetime-local" id="editCookieExpiry" class="input">
+          <div class="card" id="passwordPanel" hidden>
+            <h2 class="card-title" data-i18n="encryptedFile">This file is password protected</h2>
+            <input type="password" id="importPassword" class="input" data-i18n-placeholder="decryptPassword" placeholder="Password">
+            <div class="row-gap end mt">
+              <button class="btn btn-soft btn-sm" id="cancelDecrypt" data-i18n="cancel">Cancel</button>
+              <button class="btn btn-primary btn-sm" id="decryptBtn" data-i18n="decrypt">Unlock</button>
+            </div>
+          </div>
 
-          <label class="form-label">SameSite</label>
-          <select id="editCookieSameSite" class="select">
-            <option value="no_restriction">None</option>
-            <option value="lax">Lax</option>
-            <option value="strict">Strict</option>
+          <div class="card" id="previewPanel" hidden>
+            <h2 class="card-title" data-i18n="preview">Preview</h2>
+            <div class="preview-stats"><span id="previewCount"></span><span id="previewDomains"></span></div>
+            <div class="preview-list" id="previewList"></div>
+            <div class="row-gap end mt">
+              <button class="btn btn-soft btn-sm" id="cancelImport" data-i18n="cancel">Cancel</button>
+              <button class="btn btn-primary btn-sm" id="confirmImport" data-i18n="import">Import</button>
+            </div>
+          </div>
+
+          <div class="loading" id="loading" hidden><div class="spinner"></div><p data-i18n="importing">Importing</p></div>
+
+          <div class="stats-grid three" id="importStats" hidden>
+            <div class="stat-card"><span class="stat-num tone-success" id="importedCount">0</span><span class="stat-label" data-i18n="imported">Imported</span></div>
+            <div class="stat-card"><span class="stat-num" id="skippedCount">0</span><span class="stat-label" data-i18n="skipped">Skipped</span></div>
+            <div class="stat-card"><span class="stat-num tone-danger" id="failedCount">0</span><span class="stat-label" data-i18n="failed">Failed</span></div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title" data-i18n="options">Options</h2>
+            <label class="switch-row"><input type="checkbox" id="overwriteExisting" checked><span class="switch"></span><span data-i18n="overwriteExisting">Replace cookies that already exist</span></label>
+            <label class="switch-row"><input type="checkbox" id="previewBeforeImport" checked><span class="switch"></span><span data-i18n="previewBefore">Preview before importing</span></label>
+          </div>
+        </div>
+        <div class="subpanel" id="sub-profiles">
+          <div class="card">
+            <h2 class="card-title" data-i18n="saveProfile">Save a snapshot</h2>
+            <p class="hint" data-i18n="profilesExplain">A profile is a snapshot of all your cookies. Load it later to restore every login at once.</p>
+            <div class="input-row">
+              <input type="text" id="profileName" class="input" data-i18n-placeholder="profileName" placeholder="Profile name">
+              <button class="btn btn-primary btn-sm" id="saveProfileBtn" data-i18n="save">Save</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2 class="card-title" data-i18n="savedProfiles">Saved profiles</h2>
+            <div class="item-list" id="profileList"></div>
+          </div>
+          <div class="card">
+            <h2 class="card-title" data-i18n="compareProfiles">Compare two profiles</h2>
+            <div class="input-row">
+              <select id="compareProfile1" class="select"></select>
+              <span class="muted">vs</span>
+              <select id="compareProfile2" class="select"></select>
+            </div>
+            <button class="btn btn-soft btn-sm mt" id="compareBtn" data-i18n="compare">Compare</button>
+            <div class="diff-results" id="diffResults" hidden></div>
+          </div>
+          <div class="card">
+            <h2 class="card-title" data-i18n="autoBackup">Automatic backup</h2>
+            <label class="switch-row"><input type="checkbox" id="autoBackupEnabled"><span class="switch"></span><span data-i18n="enableAutoBackup">Download a backup file regularly</span></label>
+            <div id="autoBackupOptions" hidden>
+              <select id="backupInterval" class="select">
+                <option value="1" data-i18n="everyHour">Every hour</option>
+                <option value="6" data-i18n="every6Hours">Every 6 hours</option>
+                <option value="24" data-i18n="everyDay" selected>Every day</option>
+                <option value="168" data-i18n="everyWeek">Every week</option>
+              </select>
+              <p class="hint" id="lastBackupTime" data-i18n="neverBackedUp">Never backed up</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ============ RULES ============ -->
+      <section class="panel" id="rules-tab" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title" data-i18n="addRule">New rule</h2>
+          <p class="hint" data-i18n="rulesExplain">Rules run automatically every time a website sets a cookie.</p>
+          <label class="field-label" for="ruleMatchType" data-i18n="ruleWhen">When the cookie</label>
+          <select id="ruleMatchType" class="select">
+            <option value="domain" data-i18n="ruleMatchDomain">domain contains</option>
+            <option value="name" data-i18n="ruleMatchName">name contains</option>
+            <option value="regex" data-i18n="ruleMatchRegex">matches regex</option>
           </select>
+          <input type="text" id="ruleMatchValue" class="input mt-sm" data-i18n-placeholder="matchValue" placeholder="e.g. doubleclick.net">
+          <label class="field-label" for="ruleAction" data-i18n="ruleThen">Then</label>
+          <div class="input-row">
+            <select id="ruleAction" class="select">
+              <option value="delete" data-i18n="ruleActionDelete">Delete it</option>
+              <option value="protect" data-i18n="ruleActionProtect">Protect it</option>
+            </select>
+            <span class="muted" data-i18n="after">after</span>
+            <input type="number" id="ruleDelay" class="input num" min="0" value="0" data-i18n-title="ruleDelay">
+            <span class="muted" data-i18n="minutes">min</span>
+          </div>
+          <label class="field-label" for="ruleContainer" data-i18n="container">Container</label>
+          <select id="ruleContainer" class="select"></select>
+          <button class="btn btn-primary btn-block mt" id="addRuleBtn"><svg class="ic"><use href="#i-plus"/></svg><span data-i18n="addRuleBtn">Add rule</span></button>
+        </div>
 
-          <div class="checkbox-group">
-            <label class="checkbox-row"><input type="checkbox" id="editCookieSecure"><span class="check"></span> Secure</label>
-            <label class="checkbox-row"><input type="checkbox" id="editCookieHttpOnly"><span class="check"></span> HttpOnly</label>
+        <div class="card">
+          <h2 class="card-title" data-i18n="activeRules">Your rules</h2>
+          <div class="item-list" id="ruleList"></div>
+          <div class="row-gap mt">
+            <button class="btn btn-ghost btn-sm" id="importRulesBtn"><svg class="ic"><use href="#i-upload"/></svg><span data-i18n="importRules">Import</span></button>
+            <button class="btn btn-ghost btn-sm" id="exportRulesBtn"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="exportRules">Export</span></button>
+            <input type="file" id="ruleFileInput" accept=".json" hidden>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="cloneCookieBtn" style="display:none">Clone</button>
-          <button class="btn btn-danger" id="deleteCookieBtn">Delete</button>
-          <button class="btn btn-primary" id="saveCookieBtn">Save</button>
-        </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- Footer -->
-    <footer>
-      <p>v3.0 - 100% Offline & Secure</p>
-    </footer>
+      <!-- ============ HISTORY ============ -->
+      <section class="panel" id="history-tab" role="tabpanel">
+        <div class="section-head">
+          <h2 class="section-title" data-i18n="historyTitle">Action history</h2>
+          <div class="row-gap">
+            <button class="btn btn-soft btn-sm" id="undoBtn" data-i18n="undoAction">Undo</button>
+            <button class="btn btn-ghost-danger btn-sm" id="clearHistoryBtn" data-i18n="monitorClear">Clear</button>
+          </div>
+        </div>
+        <div class="event-list" id="historyList"></div>
+      </section>
+    </main>
+
+    <footer class="footer"><span data-i18n="footerTagline">100% offline, zero data collection</span> &middot; v3.1</footer>
   </div>
 
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="settingsTitle" data-i18n="settings">Settings</h2>
+        <button class="icon-btn" data-close-modal data-i18n-title="close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <span data-i18n="language">Language</span>
+          <select id="languageSelect" class="select select-sm"></select>
+        </div>
+        <div class="setting-row">
+          <span data-i18n="theme">Theme</span>
+          <select id="themeSelect" class="select select-sm">
+            <option value="system" data-i18n="themeSystem">System</option>
+            <option value="dark" data-i18n="themeDark">Dark</option>
+            <option value="light" data-i18n="themeLight">Light</option>
+          </select>
+        </div>
+        <div class="setting-col">
+          <span data-i18n="trackerDomains">Tracker domains (one per line)</span>
+          <textarea id="trackerList" class="input textarea mono" rows="6" spellcheck="false"></textarea>
+          <button class="btn btn-ghost btn-sm" id="resetTrackers" data-i18n="resetDefaults">Reset to defaults</button>
+        </div>
+        <div class="setting-col">
+          <span data-i18n="keyboardShortcuts">Keyboard shortcuts</span>
+          <div class="shortcut-list">
+            <div><kbd>Alt+Shift+C</kbd><span data-i18n="openSidebar">Open sidebar</span></div>
+            <div><kbd>/</kbd><span data-i18n="focusSearch">Search</span></div>
+            <div><kbd>Del</kbd><span data-i18n="deleteSelected">Delete selected</span></div>
+            <div><kbd>Ctrl+A</kbd><span data-i18n="selectAll">Select all</span></div>
+            <div><kbd>Ctrl+Z</kbd><span data-i18n="undoAction">Undo</span></div>
+            <div><kbd>Ctrl+Shift+E</kbd><span data-i18n="quickExport">Quick export</span></div>
+            <div><kbd>Esc</kbd><span data-i18n="close">Close</span></div>
+          </div>
+        </div>
+        <div class="setting-col">
+          <span data-i18n="about">About</span>
+          <p class="hint">Cookie Manager Pro v3.1 &middot; <a href="https://github.com/0XLUC4/cookie_manager" target="_blank" rel="noopener">GitHub</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONFIRM ============ -->
+  <div class="modal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmText" hidden>
+    <div class="modal-card small">
+      <div class="modal-body"><p id="confirmText"></p></div>
+      <div class="modal-foot">
+        <span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" id="confirmCancel" data-i18n="cancel">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="confirmOk" data-i18n="confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COOKIE EDITOR ============ -->
+  <div class="modal" id="cookieEditModal" role="dialog" aria-modal="true" aria-labelledby="cookieModalTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="cookieModalTitle" data-i18n="editCookie">Edit cookie</h2>
+        <button class="icon-btn" data-close-modal data-i18n-title="close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label" for="editCookieName" data-i18n="name">Name</label>
+        <input type="text" id="editCookieName" class="input" spellcheck="false">
+
+        <div class="field-label split">
+          <label for="editCookieValue" data-i18n="value">Value</label>
+          <button class="link-btn" id="copyEditValue" data-i18n="copy">Copy</button>
+        </div>
+        <textarea id="editCookieValue" class="input textarea mono" rows="4" spellcheck="false"></textarea>
+
+        <div class="grid-2">
+          <div>
+            <label class="field-label" for="editCookieDomain" data-i18n="domain">Domain</label>
+            <input type="text" id="editCookieDomain" class="input" spellcheck="false">
+          </div>
+          <div>
+            <label class="field-label" for="editCookiePath" data-i18n="path">Path</label>
+            <input type="text" id="editCookiePath" class="input" spellcheck="false">
+          </div>
+        </div>
+
+        <label class="field-label" for="editCookieStore" data-i18n="container">Container</label>
+        <select id="editCookieStore" class="select"></select>
+
+        <label class="field-label" for="editCookieExpiry" data-i18n="expiration">Expires</label>
+        <input type="datetime-local" id="editCookieExpiry" class="input">
+        <p class="hint" data-i18n="sessionHint">Leave empty for a session cookie (deleted when Firefox closes).</p>
+
+        <label class="field-label" for="editCookieSameSite">SameSite</label>
+        <select id="editCookieSameSite" class="select">
+          <option value="no_restriction" data-i18n="sameSiteNone">None: sent everywhere</option>
+          <option value="lax" data-i18n="sameSiteLax">Lax: sent on normal links</option>
+          <option value="strict" data-i18n="sameSiteStrict">Strict: this site only</option>
+        </select>
+
+        <label class="switch-row"><input type="checkbox" id="editCookieSecure"><span class="switch"></span><span><b>Secure</b> <em class="muted" data-i18n="hintSecure">Only sent over HTTPS</em></span></label>
+        <label class="switch-row"><input type="checkbox" id="editCookieHttpOnly"><span class="switch"></span><span><b>HttpOnly</b> <em class="muted" data-i18n="hintHttpOnly">Hidden from page scripts</em></span></label>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost-danger btn-sm" id="deleteCookieBtn"><svg class="ic"><use href="#i-trash"/></svg><span data-i18n="delete">Delete</span></button>
+        <button class="btn btn-soft btn-sm" id="cloneCookieBtn" data-i18n="cloneCookie">Duplicate</button>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" id="saveCookieBtn" data-i18n="save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../lib/cookies.js"></script>
   <script src="i18n.js"></script>
   <script src="sidebar.js"></script>
 </body>

@@ -1,13 +1,14 @@
 {
   "manifest_version": 2,
   "name": "Cookie Manager Pro",
-  "version": "3.0.0",
-  "description": "The ultimate cookie manager: monitor, protect, clean, export/import, profiles, rules, containers, dashboard & more. 100% offline.",
+  "version": "3.1.0",
+  "description": "View, edit, protect, clean and back up cookies with full Firefox container support. 100% offline.",
   "author": "0XLUC4",
   "homepage_url": "https://github.com/0XLUC4/cookie_manager",
   "icons": {
     "48": "icons/icon-48.png",
-    "96": "icons/icon-96.png"
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
   },
 
   "permissions": [
@@ -20,15 +21,9 @@
   ],
 
   "commands": {
-    "quick-export": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+E"
-      },
-      "description": "Quick export cookies"
-    },
     "_execute_sidebar_action": {
       "suggested_key": {
-        "default": "Ctrl+Shift+I"
+        "default": "Alt+Shift+C"
       },
       "description": "Open Cookie Manager"
     }
@@ -39,7 +34,7 @@
       "48": "icons/icon-48.png",
       "96": "icons/icon-96.png"
     },
-    "default_title": "Open Cookie Manager"
+    "default_title": "Cookie Manager Pro"
   },
 
   "sidebar_action": {
@@ -63,6 +58,6 @@
   },
 
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["lib/cookies.js", "background.js"]
   }
 }
